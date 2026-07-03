@@ -15,7 +15,9 @@ community/
     scripts/
 ```
 
-Only `SKILL.md` is required. Community skills should be focused and source-backed when they encode policy or technical guidance.
+Only `SKILL.md` is required. Add `references/`, `assets/`, or `scripts/` only when the skill genuinely needs them.
+
+Do not add per-skill `README.md`, installation guides, quick references, changelogs, or other auxiliary docs. Community skills should be focused and source-backed when they encode policy or technical guidance.
 
 Community skills must include a `maintainer:` field in `SKILL.md` frontmatter:
 

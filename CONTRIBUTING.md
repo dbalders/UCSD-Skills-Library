@@ -43,9 +43,10 @@ If you point an AI agent at this repository to create or edit a skill, give it t
 4. Put community contributed skills under `community/<skill-name>/` and include a `maintainer:` frontmatter field.
 5. Do not create a top-level `skills/` folder in this public repo.
 6. Do not add dashboard, catalog, installer, or deployment tooling unless the task explicitly asks for repository tooling.
-7. Keep long references in `references/`; keep `SKILL.md` focused on when to use the skill and how to run the workflow.
-8. Use placeholders in examples. Do not invent realistic UCSD people, emails, IDs, tokens, hosts, or private service names.
-9. Run the local checks documented below, or clearly say why they could not be run.
+7. Do not add per-skill `README.md`, installation guides, quick references, changelogs, or other auxiliary docs. Put agent-needed detail in `SKILL.md` or `references/`.
+8. Keep long references in `references/`; keep `SKILL.md` focused on when to use the skill and how to run the workflow.
+9. Use placeholders in examples. Do not invent realistic UCSD people, emails, IDs, tokens, hosts, or private service names.
+10. Run the local checks documented below, or clearly say why they could not be run.
 
 ## Skill Frontmatter
 
@@ -58,7 +59,7 @@ description: Use when an agent should do a specific workflow. Trigger on concret
 ---
 ```
 
-The `description` is used by agents to decide when to load the skill. Be specific and avoid broad wording that overlaps unrelated skills.
+The `description` is used by agents to decide when to load the skill. Include the concrete trigger contexts there, not in a separate "when to use" section that only appears after the skill is already loaded. Be specific and avoid broad wording that overlaps unrelated skills.
 
 Community skills must also include a maintainer:
 
@@ -72,22 +73,13 @@ maintainer: Contributor Name
 
 Use a real person, team, or organization name for `maintainer:`. Do not put private phone numbers, personal addresses, tokens, or credentials in frontmatter.
 
-Recommended optional fields:
-
-```yaml
-allowed-tools: Read, Bash
-```
-
-Use `allowed-tools` when the agent harness supports it. List only the tools the skill actually needs.
-
-Do not add `catalog`, `tier`, `publicationStatus`, or generated-dashboard metadata unless this repository later adds tooling that requires it.
+Do not add arbitrary frontmatter fields. For this public repo, `maintainer:` is the only extra frontmatter field allowed, and only for community skills. Do not add `allowed-tools`, `catalog`, `tier`, `publicationStatus`, `agents/openai.yaml`, or generated-dashboard metadata unless this repository later adds tooling that requires it.
 
 ## Skill Content Rules
 
 A good public skill should:
 
 - State exactly when to use it.
-- State when not to use it if nearby workflows could be confused.
 - Prefer official or authoritative sources.
 - Cite sources for policy, compliance, brand, accessibility, security, or technical-standard claims.
 - Make approval gates explicit before sending messages, changing production systems, publishing content, or contacting external services.
