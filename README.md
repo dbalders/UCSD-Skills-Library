@@ -94,7 +94,7 @@ description: Use when an agent should do a specific workflow. Trigger on concret
 
 The frontmatter `description` should explain when the skill should be used. Keep it concrete so agents do not load the skill for unrelated work.
 
-Community skills must also include a `maintainer:` field naming the contributor, team, or organization responsible for the skill.
+Keep frontmatter minimal. Public TritonAI skills should use only `name:` and `description:`. Community skills must also include a `maintainer:` field naming the contributor, team, or organization responsible for the skill.
 
 ## Public Boundary
 
