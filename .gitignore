@@ -1,0 +1,40 @@
+# macOS and editor noise
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+
+# Python/cache output from optional local checks
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node/tooling output from future local checks
+node_modules/
+.npm/
+coverage/
+
+# Generated or packaged artifacts
+dist/
+build/
+output/
+*.zip
+*.tar.gz
+*.log
+
+# Local-only agent/runtime state
+.agents/
+.codex/
+.claude/
+.opencode/
+.memory/
