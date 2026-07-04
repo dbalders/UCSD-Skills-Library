@@ -1,0 +1,148 @@
+language: "en-US"
+tone_instructions: "Be concise, direct, and constructive. Prefer specific file/line feedback and concrete replacement guidance over broad warnings."
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  review_details: true
+  poem: false
+  commit_status: true
+  fail_commit_status: true
+
+  auto_review:
+    enabled: true
+    drafts: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+    base_branches:
+      - ".*"
+    ignore_title_keywords:
+      - "[skip ai review]"
+      - "do not review"
+
+  path_instructions:
+    - path: "**/SKILL.md"
+      instructions: |
+        Review this as a public UCSD/TritonAI skill entrypoint, not as private secure-library material.
+
+        Focus on:
+        - Whether the skill is safe and useful in the public UCSD-Skills-Library.
+        - Public-repo fit: reusable guidance, source-backed public UCSD/TritonAI workflows, public documentation navigation, generic safety rules, and workflows that do not require restricted infrastructure or private operational context are appropriate here.
+        - Secure-repo fit: internal/restricted workflows, private infrastructure assumptions, deployment handoffs, authentication flows, restricted data handling, operational runbooks, private hostnames/accounts, or secure operations should be flagged as likely belonging in UCSD-Skills-Library-Secure instead.
+        - Contributor placement: only privately authorized authors may contribute to `tritonai/`. Do not ask for, print, infer, or name private authorization membership. If the Contributor placement check fails, the skill contribution must live under `community/<skill-name>/` and include `maintainer:`.
+        - Frontmatter must match CONTRIBUTING.md: `tritonai/<skill-name>/SKILL.md` or `community/<skill-name>/SKILL.md`, folder name equals `name:`, a concrete `description:` trigger exists, and community skills include `maintainer:`.
+        - Do not ask for catalog/storefront metadata in this repo.
+        - The body should clearly say when to use the skill, when not to use it, what humans must approve, and where the agent boundary stops.
+        - Flag vague triggers, broad agent behavior changes, hidden external writes, or instructions that bypass user confirmation, security, privacy, or repository rules.
+
+        When something should change, leave actionable feedback with the exact path/section and the replacement or decision needed.
+
+    - path: "**/references/**"
+      instructions: |
+        Review references for public-skill suitability and leakage.
+
+        Flag:
+        - Real people, private emails, account IDs, private hosts, tickets, logs, screenshots, exports, credentials, or protected data.
+        - Internal operational detail broader than public documentation needs.
+        - Policy, compliance, platform, or technical claims without a source or currency note when those claims guide agent behavior.
+        - External links that are mutable, unofficial, or unnecessary.
+
+        Prefer comments that say what to redact, replace with a placeholder, cite, or move to UCSD-Skills-Library-Secure.
+
+    - path: "**/scripts/**"
+      instructions: |
+        Treat bundled scripts as high-risk public-skill assets.
+
+        Review for:
+        - Hidden network calls, pipe-to-shell behavior, obfuscation, unsafe shell execution, broad filesystem access, token/cache reads, or mutation of external systems without explicit user confirmation.
+        - Secrets or protected data written to logs, config files, caches, stdout, or errors.
+        - Private infrastructure assumptions or internal-only deployment behavior that belongs in UCSD-Skills-Library-Secure.
+        - Clear setup and dependency expectations.
+        - Minimal, readable behavior that matches the SKILL.md guardrails.
+
+        Call out exact commands or code paths that need changes.
+
+    - path: "**/assets/**"
+      instructions: |
+        Review assets as bundled public-skill material.
+
+        For prompts, templates, and other text assets, verify they:
+        - Contain no real secrets, hosts, account IDs, protected data, or production exports.
+        - Keep secrets referenced by name only, never as values.
+        - Have provenance and checksums when imported or adapted from another source.
+        - Match the owning SKILL.md boundaries and approval gates.
+
+    - path: ".github/**"
+      instructions: |
+        Review GitHub automation for public-skill PR review, not private secure-skill review.
+
+        Flag:
+        - Workflows that run untrusted PR code with write tokens or repository secrets.
+        - Overly broad permissions.
+        - Private secure-library assumptions in public repo automation.
+        - Checks that produce noisy failures instead of constructive review evidence.
+
+        Prefer least privilege and PR comments/check summaries that help maintainers decide what to change.
+
+  tools:
+    github-checks:
+      enabled: true
+      timeout_ms: 900000
+
+  pre_merge_checks:
+    title:
+      mode: "warning"
+      requirements: "The title should identify the public skill or repo automation being changed and the intent of the change."
+    description:
+      mode: "warning"
+    issue_assessment:
+      mode: "off"
+    custom_checks:
+      - name: "Public repo fit"
+        mode: "error"
+        instructions: |
+          Pass when every changed skill or repo instruction belongs in the public UCSD-Skills-Library.
+
+          A change belongs here when it is public-safe, reusable, source-backed where needed, and does not depend on private infrastructure, restricted access, private deployment handoffs, protected-data workflows, or internal operational runbooks.
+
+          Fail when a changed skill clearly belongs in UCSD-Skills-Library-Secure, such as instructions involving private UCSD or TritonAI infrastructure, restricted data handling, authentication/deployment handoffs, secure operations, private hostnames/accounts, non-public runbooks, or internal escalation paths.
+
+          Return Inconclusive only when the PR lacks enough context to decide, and list the exact question a maintainer must answer.
+
+      - name: "Contributor placement"
+        mode: "error"
+        instructions: |
+          For non-blocking cases, say only that no public placement action is being reported. Do not say that the contributor placement check passed, that the author is authorized, or that the author matched private placement rules.
+
+          For blocking `tritonai/` placement cases, say that TritonAI placement requires maintainer verification before merge. The actionable fix is to move the skill to `community/<skill-name>/` and add `maintainer:` in `SKILL.md` frontmatter unless a maintainer confirms private placement approval.
+
+          Return Inconclusive if contributor-placement evidence is unavailable to CodeRabbit, and state that a maintainer must rely on the Contributor placement check. Do not list, request, or infer privately authorized members.
+
+      - name: "Leakage and public boundary safety"
+        mode: "error"
+        instructions: |
+          Fail if changed files include secrets, credentials, token/cache material, private keys, kubeconfigs, auth cookies, production exports, logs, screenshots with real data, real student/patient/employee/customer data, real account IDs, or realistic private hosts/emails that should be placeholders.
+
+          Also fail if a skill instructs an agent to send messages, publish content, deploy, contact external services, or mutate external systems without an explicit human confirmation gate.
+
+          Pass when examples use placeholders, secrets are referenced by name only, public documentation is cited where needed, and approval boundaries are explicit.
+
+      - name: "Contributing format"
+        mode: "error"
+        instructions: |
+          Pass when changed skills follow CONTRIBUTING.md:
+          - TritonAI or UCSD AI Tools maintained skills are in `tritonai/<skill-name>/`.
+          - Community skills are in `community/<skill-name>/`.
+          - Each skill folder has `SKILL.md`.
+          - The folder name is lowercase hyphenated and matches frontmatter `name:`.
+          - `description:` is concrete enough for an agent to decide when to load the skill.
+          - Community skills include `maintainer:`.
+          - Long references/assets/scripts stay inside the owning skill folder.
+          - `allowed-tools`, if present, is minimal for the workflow.
+
+          Fail with concrete path-specific feedback for any mismatch.
+
+chat:
+  auto_reply: true

@@ -24,6 +24,8 @@ community/
 
 Only `SKILL.md` is required. Add `references/`, `assets/`, or `scripts/` only when the skill genuinely needs them.
 
+Only authors on the private AI team allowlist may contribute skills under `tritonai/`. Everyone else should put their skill under `community/<skill-name>/` and include `maintainer:` in `SKILL.md` frontmatter.
+
 ## Before You Add a Skill
 
 - Check existing skills first and extend one when that is cleaner than adding a near-duplicate.
@@ -31,6 +33,7 @@ Only `SKILL.md` is required. Add `references/`, `assets/`, or `scripts/` only wh
 - Use lowercase, hyphenated folder names.
 - Make the folder name match the `name:` field in `SKILL.md`.
 - Community skills must include a `maintainer:` field in `SKILL.md` frontmatter naming the contributor, team, or organization responsible for the skill.
+- Contributors outside the private AI team allowlist must use `community/<skill-name>/`, not `tritonai/<skill-name>/`.
 - Do not include internal UCSD credentials, private service details, customer data, secrets, or non-public operational runbooks.
 
 ## Agent Instructions
@@ -39,8 +42,8 @@ If you point an AI agent at this repository to create or edit a skill, give it t
 
 1. Read this file before editing.
 2. Create or update one skill at a time.
-3. Put TritonAI or UCSD AI Tools maintained skills under `tritonai/<skill-name>/`.
-4. Put community contributed skills under `community/<skill-name>/` and include a `maintainer:` frontmatter field.
+3. Put TritonAI or UCSD AI Tools maintained skills under `tritonai/<skill-name>/` only when the PR author is on the private AI team allowlist.
+4. Put all other contributed skills under `community/<skill-name>/` and include a `maintainer:` frontmatter field.
 5. Do not create a top-level `skills/` folder in this public repo.
 6. Do not add dashboard, catalog, installer, or deployment tooling unless the task explicitly asks for repository tooling.
 7. Do not add per-skill `README.md`, installation guides, quick references, changelogs, or other auxiliary docs. Put agent-needed detail in `SKILL.md` or `references/`.
@@ -109,7 +112,15 @@ find tritonai community -name SKILL.md -print
 git diff --check
 ```
 
-If validation tooling is added later, document the real commands here and in `README.md`. The tooling should enforce the same public skill rules described in this file.
+Pull requests also run GitHub Actions preflight checks for public-skill format,
+contributor placement, obvious leak patterns, and whitespace.
+CodeRabbit and the optional local Codex webhook reviewer add AI review focused on
+whether a skill is safe for this public repository or should move to
+`UCSD-Skills-Library-Secure`.
+
+The private AI team allowlist is not committed to this repository. Public
+automation does not reveal or branch publicly on allowlist membership; `tritonai/`
+changes require maintainer verification before merge.
 
 ## Private or Internal Skills
 
