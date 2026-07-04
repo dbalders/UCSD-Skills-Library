@@ -32,8 +32,8 @@ UCSD-Skills-Library/
       scripts/
 ```
 
-- `tritonai/` is for skills maintained by the TritonAI or UCSD AI Tools team.
-- `community/` is for skills contributed by the community and reviewed before merge.
+- `tritonai/` is for skills maintained by the TritonAI or UCSD AI Tools team. Only authors on the private AI team allowlist may contribute skills there.
+- `community/` is for skills contributed by everyone else and reviewed before merge.
 - Each skill lives in its own folder.
 - Each skill must have a `SKILL.md` entrypoint.
 
@@ -109,6 +109,21 @@ Do not add:
 - Skills that send email, write to production systems, or use authentication without clear user confirmation and review.
 
 Internal or restricted skills belong in the private `UCSD-Skills-Library-Secure` repository instead.
+
+## PR Review Automation
+
+Pull requests are reviewed through three complementary layers:
+
+- GitHub Actions runs lightweight preflight checks for contributor placement,
+  public-skill format, obvious leak patterns, and whitespace.
+  To avoid exposing private membership, public checks require maintainer
+  verification for `tritonai/` changes instead of branching on a public allowlist
+  result.
+- CodeRabbit is configured by `.coderabbit.yaml` for AI review on each PR update,
+  with emphasis on public-vs-secure repository fit.
+- The local Codex webhook reviewer in `docs/public-pr-review-service.md` runs
+  through the Codex app server and posts a new public-skills review comment for
+  each newly reviewed PR head SHA.
 
 ## Contributing
 

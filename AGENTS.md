@@ -10,8 +10,8 @@ Instructions for AI agents working in this public UCSD Skills Library.
 
 ## Repository Shape
 
-- Put TritonAI or UCSD AI Tools maintained skills under `tritonai/<skill-name>/`.
-- Put community contributed skills under `community/<skill-name>/`.
+- Put TritonAI or UCSD AI Tools maintained skills under `tritonai/<skill-name>/` only when the PR author is on the private AI team allowlist.
+- Put all other contributed skills under `community/<skill-name>/`.
 - Every skill folder must include `SKILL.md`.
 - Optional skill resources belong inside that skill folder as `references/`, `assets/`, or `scripts/`.
 - Do not create a top-level `skills/` folder in this public repository.
@@ -24,6 +24,7 @@ Instructions for AI agents working in this public UCSD Skills Library.
 - Make the folder name match the `name:` field in `SKILL.md`.
 - Write a specific `description:` trigger in `SKILL.md` frontmatter.
 - For community skills, include a `maintainer:` frontmatter field naming the contributor, team, or organization responsible for the skill.
+- If a contributor outside the private AI team allowlist changes `tritonai/`, tell them to move the skill to `community/<skill-name>/` and add `maintainer:`.
 - Keep long policy excerpts, examples, and reference material in `references/` instead of overloading `SKILL.md`.
 - Do not add arbitrary frontmatter fields. For this public repo, `maintainer:` is the only extra field, and only for community skills.
 - Do not add `agents/openai.yaml` unless this repository later adds tooling that consumes it.
@@ -49,6 +50,11 @@ Internal or restricted skills belong in `UCSD-Skills-Library-Secure`, not here.
 
 ## Checks
 
-Before finishing, run the most relevant available checks. For documentation-only changes, at least read back the edited files and check for obvious formatting issues.
+Before finishing, run the most relevant available checks. For documentation-only or single-skill changes, at least run:
 
-If this repo adds validation tooling later, document the commands in `README.md` and `CONTRIBUTING.md` before expecting agents or contributors to run them.
+```sh
+find tritonai community -name SKILL.md -print
+git diff --check
+```
+
+Pull requests also run GitHub Actions preflight checks for contributor placement, public-skill format, obvious leak patterns, and whitespace.

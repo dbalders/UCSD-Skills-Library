@@ -1,0 +1,393 @@
+name: public skill review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed files
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="HEAD"
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+            if [[ "$base" =~ ^0+$ ]]; then
+              base="${head}^"
+            fi
+          fi
+
+          git diff --name-only "$base" "$head" > changed-files.txt
+          {
+            echo "changed_files<<EOF"
+            cat changed-files.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check public skill format
+        shell: python
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.actor }}
+        run: |
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          root = Path(".")
+          allowed_roots = {"tritonai", "community"}
+          contributor = os.environ.get("PR_AUTHOR", "").strip().lower()
+          changed_files = [
+              Path(line.strip())
+              for line in Path("changed-files.txt").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          tritonai_changes = sorted(str(path) for path in changed_files if path.parts and path.parts[0] == "tritonai")
+          skill_files = sorted(
+              path
+              for root_name in allowed_roots
+              for path in root.glob(f"{root_name}/*/SKILL.md")
+          )
+          errors = []
+          warnings = []
+          placement_errors = []
+
+          def redact_public_text(text):
+              redacted = re.sub(r"https://x-access-token:[^@\s]+@", "https://x-access-token:***@", text)
+              redacted = re.sub(
+                  r"https://(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})@github\.com",
+                  "https://***@github.com",
+                  redacted,
+              )
+              redacted = re.sub(
+                  r"https://([^/\s:@]+):(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|[^@\s]{20,})@github\.com",
+                  r"https://\1:***@github.com",
+                  redacted,
+              )
+              redacted = re.sub(
+                  r"https://[A-Za-z0-9._~!$&+,;=:%_-]+@github\.com",
+                  "https://***@github.com",
+                  redacted,
+              )
+              redacted = re.sub(r"github_pat_[A-Za-z0-9_]{20,}", "github_pat_***", redacted)
+              redacted = re.sub(r"gh[pousr]_[A-Za-z0-9]{30,}", "gh*_***", redacted)
+              redacted = re.sub(r"AKIA[0-9A-Z]{16}", "AKIA***", redacted)
+              redacted = re.sub(r"xox[baprs]-[A-Za-z0-9-]{10,}", "xox*-***", redacted)
+              redacted = re.sub(
+                  r"(?i)([\"']?\b(?:[a-z0-9]+[_-])*(?:api[_-]?key|secret|token|password|passwd|pwd)(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*([\"']))[^\n\"']{12,}([\"'])",
+                  r"\1***\3",
+                  redacted,
+              )
+              redacted = re.sub(
+                  r"(?i)([\"']?\b(?:[a-z0-9]+[_-])*(?:api[_-]?key|secret|token|password|passwd|pwd)(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*)[A-Za-z0-9_./+=:@-]{12,}",
+                  r"\1***",
+                  redacted,
+              )
+              return redacted
+
+          if tritonai_changes:
+              placement_errors.append(
+                  "TritonAI placement requires maintainer verification before merge. "
+                  "Move skill work to community/<skill-name>/ and include maintainer: unless a maintainer confirms private placement approval."
+              )
+          if not skill_files:
+              errors.append("No public skills found. Add tritonai/<skill-name>/SKILL.md or community/<skill-name>/SKILL.md.")
+
+          misplaced = sorted(
+              path
+              for path in root.glob("*/SKILL.md")
+              if path.parts[0] not in allowed_roots and not path.parts[0].startswith(".")
+          )
+          for path in misplaced:
+              errors.append(f"{path}: public skills must live under tritonai/ or community/, not at repo root.")
+
+          if Path("skills").exists():
+              errors.append("Do not create a top-level skills/ folder in this public repository.")
+
+          name_re = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+          forbidden_frontmatter = {
+              "catalog",
+              "tier",
+              "publicationStatus",
+              "category",
+              "status",
+          }
+
+          def frontmatter(path: Path) -> dict[str, str]:
+              text = path.read_text(encoding="utf-8")
+              if not text.startswith("---\n"):
+                  errors.append(f"{path}: SKILL.md must start with YAML frontmatter.")
+                  return {}
+              parts = text.split("---", 2)
+              if len(parts) < 3:
+                  errors.append(f"{path}: YAML frontmatter is not closed.")
+                  return {}
+              data = {}
+              for raw in parts[1].splitlines():
+                  if not raw or raw.startswith(" ") or raw.startswith("\t") or ":" not in raw:
+                      continue
+                  key, value = raw.split(":", 1)
+                  data[key.strip()] = value.strip()
+              return data
+
+          for skill in skill_files:
+              collection = skill.parts[0]
+              folder = skill.parent.name
+              meta = frontmatter(skill)
+              declared_name = meta.get("name", "").strip("'\"")
+              description = meta.get("description", "")
+
+              if not name_re.fullmatch(folder):
+                  errors.append(f"{skill}: skill folder must be lowercase hyphenated: {folder}")
+              if declared_name != folder:
+                  errors.append(f"{skill}: frontmatter name must match folder name '{folder}'.")
+              if "description" not in meta or not description:
+                  errors.append(f"{skill}: frontmatter description is required.")
+              if collection == "community" and not meta.get("maintainer"):
+                  errors.append(f"{skill}: community skills must include frontmatter maintainer:.")
+
+              extra = forbidden_frontmatter & set(meta)
+              if extra:
+                  errors.append(
+                      f"{skill}: remove generated catalog/storefront metadata: "
+                      + ", ".join(sorted(extra))
+                  )
+
+              if "allowed-tools" in meta:
+                  tools = [tool.strip() for tool in meta["allowed-tools"].split(",") if tool.strip()]
+                  if len(tools) > 6:
+                      warnings.append(
+                          f"{skill}: allowed-tools has {len(tools)} entries; confirm each one is needed."
+                      )
+
+          for warning in warnings:
+              print(f"::warning::{redact_public_text(warning)}")
+          all_errors = [*placement_errors, *errors]
+          for error in all_errors:
+              print(f"::error::{redact_public_text(error)}")
+
+          with Path("public-skill-preflight.md").open("w", encoding="utf-8") as handle:
+              handle.write("# Public Skill Preflight\n\n")
+              handle.write("## Contributor Placement\n")
+              handle.write("- TritonAI placement is reviewed privately when applicable.\n")
+              handle.write(f"- Changed `tritonai/` path count: {len(tritonai_changes)}\n")
+              if placement_errors:
+                  for error in placement_errors:
+                      handle.write(f"- Action: {error}\n")
+              else:
+                  handle.write("- No public placement action is being reported.\n")
+              handle.write("\n")
+              handle.write("## Skills Found\n")
+              handle.write(f"- Count: {len(skill_files)}\n")
+              handle.write("\n## Format Findings\n")
+              if warnings:
+                  for warning in warnings:
+                      handle.write(f"- Warning: {redact_public_text(warning)}\n")
+              if errors:
+                  for error in errors:
+                      handle.write(f"- Error: {redact_public_text(error)}\n")
+              if not warnings and not errors:
+                  handle.write("- No format issues found.\n")
+
+          sys.exit(1 if all_errors else 0)
+
+      - name: Scan changed files for high-confidence leaks
+        id: leak_scan
+        if: always()
+        shell: python
+        run: |
+          import re
+          import sys
+          from pathlib import Path
+
+          changed = [
+              Path(line.strip())
+              for line in Path("changed-files.txt").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          skip_suffixes = {
+              ".png",
+              ".jpg",
+              ".jpeg",
+              ".gif",
+              ".pdf",
+              ".zip",
+              ".gz",
+              ".tgz",
+              ".woff",
+              ".woff2",
+              ".ttf",
+          }
+          patterns = [
+              (re.compile(r"AKIA[0-9A-Z]{16}"), "AWS access key ID"),
+              (re.compile(r"https://[A-Za-z0-9._~!$&+,;=:%_-]+@github\.com"), "credential-bearing GitHub URL"),
+              (re.compile(r"github_pat_[A-Za-z0-9_]{20,}"), "GitHub fine-grained token"),
+              (re.compile(r"gh[pousr]_[A-Za-z0-9]{30,}"), "GitHub token"),
+              (re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}"), "Slack token"),
+              (re.compile(r"-----BEGIN[A-Z ]*PRIVATE KEY-----"), "private key block"),
+          ]
+          credential_assignment = re.compile(
+              r"(?i)[\"']?\b(?:[a-z0-9]+[_-])*(api[_-]?key|secret|token|password|passwd|pwd)(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*"
+              r"(?:(?P<quote>[\"'])(?P<quoted>[^\n\"']{12,})(?P=quote)|(?P<bare>[A-Za-z0-9_./+=:@-]{12,}))"
+          )
+          placeholder_markers = (
+              "...",
+              "changeme",
+              "dummy",
+              "example",
+              "fake",
+              "placeholder",
+              "redacted",
+              "replace-me",
+          )
+          findings = []
+
+          def line_for(text, index):
+              return text.count("\n", 0, index) + 1
+
+          def is_placeholder_value(value):
+              normalized = value.strip()
+              lowered = normalized.lower()
+              if re.fullmatch(r"[A-Z][A-Z0-9_]{5,}", normalized):
+                  return True
+              if normalized.startswith(("$", "{{", "<")):
+                  return True
+              if lowered.startswith(("env.", "os.environ", "process.env", "secrets.")):
+                  return True
+              return any(marker in lowered for marker in placeholder_markers)
+
+          def redact_public_text(text):
+              redacted = re.sub(r"https://x-access-token:[^@\s]+@", "https://x-access-token:***@", text)
+              redacted = re.sub(
+                  r"https://(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})@github\.com",
+                  "https://***@github.com",
+                  redacted,
+              )
+              redacted = re.sub(
+                  r"https://([^/\s:@]+):(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|[^@\s]{20,})@github\.com",
+                  r"https://\1:***@github.com",
+                  redacted,
+              )
+              redacted = re.sub(
+                  r"https://[A-Za-z0-9._~!$&+,;=:%_-]+@github\.com",
+                  "https://***@github.com",
+                  redacted,
+              )
+              redacted = re.sub(r"github_pat_[A-Za-z0-9_]{20,}", "github_pat_***", redacted)
+              redacted = re.sub(r"gh[pousr]_[A-Za-z0-9]{30,}", "gh*_***", redacted)
+              redacted = re.sub(r"AKIA[0-9A-Z]{16}", "AKIA***", redacted)
+              redacted = re.sub(r"xox[baprs]-[A-Za-z0-9-]{10,}", "xox*-***", redacted)
+              redacted = re.sub(
+                  r"(?i)([\"']?\b(?:[a-z0-9]+[_-])*(?:api[_-]?key|secret|token|password|passwd|pwd)(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*([\"']))[^\n\"']{12,}([\"'])",
+                  r"\1***\3",
+                  redacted,
+              )
+              redacted = re.sub(
+                  r"(?i)([\"']?\b(?:[a-z0-9]+[_-])*(?:api[_-]?key|secret|token|password|passwd|pwd)(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*)[A-Za-z0-9_./+=:@-]{12,}",
+                  r"\1***",
+                  redacted,
+              )
+              return redacted
+
+          def labels_in_text(text):
+              labels = []
+              for regex, label in patterns:
+                  if regex.search(text):
+                      labels.append(label)
+              for match in credential_assignment.finditer(text):
+                  value = match.group("quoted") or match.group("bare") or ""
+                  if is_placeholder_value(value):
+                      continue
+                  labels.append("hardcoded credential-looking value")
+                  break
+              return labels
+
+          for path in changed:
+              for label in labels_in_text(str(path)):
+                  findings.append((str(path), 0, f"{label} in changed path"))
+              if not path.exists() or not path.is_file() or path.suffix.lower() in skip_suffixes:
+                  continue
+              if path.name in {".env", ".npmrc", ".pypirc"} or path.suffix.lower() in {".pem", ".key", ".p12", ".pfx"}:
+                  findings.append((str(path), 1, "sensitive file type"))
+                  continue
+              try:
+                  text = path.read_text(encoding="utf-8", errors="replace")
+              except OSError:
+                  continue
+              for regex, label in patterns:
+                  match = regex.search(text)
+                  if match:
+                      findings.append((str(path), line_for(text, match.start()), label))
+              for match in credential_assignment.finditer(text):
+                  value = match.group("quoted") or match.group("bare") or ""
+                  if is_placeholder_value(value):
+                      continue
+                  findings.append((str(path), line_for(text, match.start()), "hardcoded credential-looking value"))
+                  break
+
+          with Path("public-skill-preflight.md").open("a", encoding="utf-8") as handle:
+              handle.write("\n## Leak Scan\n")
+              if findings:
+                  for path, line, label in findings:
+                      safe_path = redact_public_text(path)
+                      location = "changed path" if line == 0 else f"line {line}"
+                      handle.write(f"- Error: `{safe_path}` {location} contains a possible {label}.\n")
+              else:
+                  handle.write("- No high-confidence leak patterns found in changed text files.\n")
+
+          for path, line, label in findings:
+              safe_path = redact_public_text(path)
+              location = "changed path" if line == 0 else f"line {line}"
+              print(f"::error::{safe_path} {location}: possible {label}. Remove the value and rotate it if real.")
+
+          sys.exit(1 if findings else 0)
+
+      - name: Check whitespace
+        if: always() && steps.leak_scan.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}" HEAD
+          else
+            base="${{ github.event.before }}"
+            head="${{ github.sha }}"
+            if [[ "$base" =~ ^0+$ ]]; then
+              base="${head}^"
+            fi
+            git diff --check "$base" "$head"
+          fi
+
+      - name: Write review summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            if [[ -f public-skill-preflight.md ]]; then
+              cat public-skill-preflight.md
+            else
+              echo "# Public Skill Preflight"
+              echo
+              echo "Preflight stopped before writing its summary."
+            fi
+            echo
+            echo "## AI Review"
+            echo "CodeRabbit is configured in .coderabbit.yaml to review public/secure placement, leakage risk, and CONTRIBUTING.md fit on every PR update."
+            echo "The optional local Codex webhook reviewer is documented in docs/public-pr-review-service.md and posts a new PR comment for each reviewed head SHA."
+          } >> "$GITHUB_STEP_SUMMARY"
