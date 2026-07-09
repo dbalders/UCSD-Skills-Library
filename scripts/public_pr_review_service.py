@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GitHub webhook receiver that reviews public-skills PRs through Codex app-server."""
+"""GitHub webhook receiver that reviews public-skills PRs and issues through Codex app-server."""
 
 from __future__ import annotations
 
@@ -31,8 +31,10 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKER = "<!-- ucsd-public-skills-codex-pr-review -->"
+ISSUE_MARKER = "<!-- ucsd-public-skills-codex-issue-review -->"
 DEFAULT_CODEX = "/Applications/Codex.app/Contents/Resources/codex"
 REVIEW_ACTIONS = {"opened", "reopened", "synchronize", "ready_for_review", "edited"}
+ISSUE_ACTIONS = {"opened", "reopened", "edited"}
 SENSITIVE_ENV_MARKERS = ("TOKEN", "SECRET", "PASSWORD", "PASSWD", "API_KEY", "ACCESS_KEY", "PRIVATE_KEY")
 LOG = logging.getLogger("public-pr-review-service")
 
@@ -63,6 +65,7 @@ class ReviewJob:
     head_sha: str
     action: str
     delivery_id: str
+    kind: str = "pull_request"
 
 
 @dataclass
@@ -115,6 +118,9 @@ class GitHubClient:
     def get_pull(self, owner: str, repo: str, number: int) -> dict[str, Any]:
         return self.request("GET", f"/repos/{owner}/{repo}/pulls/{number}")
 
+    def get_issue(self, owner: str, repo: str, number: int) -> dict[str, Any]:
+        return self.request("GET", f"/repos/{owner}/{repo}/issues/{number}")
+
     def list_issue_comments(self, owner: str, repo: str, number: int) -> list[dict[str, Any]]:
         comments: list[dict[str, Any]] = []
         page = 1
@@ -141,6 +147,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=int(os.environ.get("PR_REVIEW_PORT", "8787")))
     parser.add_argument("--path", default=os.environ.get("PR_REVIEW_WEBHOOK_PATH", "/github/webhook"))
     parser.add_argument("--review-pr", type=int, action="append", help="Manually review this PR number and exit.")
+    parser.add_argument("--review-issue", type=int, action="append", help="Manually review this issue number and exit.")
     parser.add_argument("--force", action="store_true", help="Review even if the head SHA was already reviewed.")
     parser.add_argument("--dry-run", action="store_true", help="Print comments instead of posting to GitHub.")
     parser.add_argument("--skip-drafts", action="store_true", help="Skip draft pull requests.")
@@ -185,7 +192,7 @@ def main() -> int:
     if not token and not args.dry_run:
         LOG.error("Set PR_REVIEW_GITHUB_TOKEN, GITHUB_TOKEN, or GH_TOKEN before posting GitHub comments.")
         return 2
-    if not webhook_secret and not args.allow_unsigned and not args.review_pr:
+    if not webhook_secret and not args.allow_unsigned and not args.review_pr and not args.review_issue:
         LOG.error("Set PR_REVIEW_WEBHOOK_SECRET or pass --allow-unsigned for local-only testing.")
         return 2
 
@@ -208,6 +215,15 @@ def main() -> int:
             pull = context.client.get_pull(owner, repo, number)
             process_job(context, ReviewJob(owner, repo, number, str(pull["head"]["sha"]), "manual", "manual"))
         return 0
+    if args.review_issue:
+        owner, repo = repo_filter
+        for number in args.review_issue:
+            issue = context.client.get_issue(owner, repo, number)
+            process_job(
+                context,
+                ReviewJob(owner, repo, number, str(issue.get("updated_at") or issue.get("node_id") or ""), "manual", "manual", "issue"),
+            )
+        return 0
 
     worker = threading.Thread(target=worker_loop, args=(context,), daemon=True)
     worker.start()
@@ -215,6 +231,7 @@ def main() -> int:
     server = ThreadingHTTPServer((args.host, args.port), make_handler(context, webhook_secret))
     LOG.info("Webhook receiver listening on http://%s:%s%s", args.host, args.port, args.path)
     LOG.info("Accepting GitHub pull_request actions: %s", ", ".join(sorted(REVIEW_ACTIONS)))
+    LOG.info("Accepting GitHub issues actions: %s", ", ".join(sorted(ISSUE_ACTIONS)))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -281,13 +298,16 @@ def handle_webhook_payload(context: ReviewContext, event: str, delivery: str, pa
     if event == "ping":
         LOG.info("Received GitHub webhook ping")
         return False
-    if event != "pull_request":
-        LOG.info("Ignoring GitHub event %s", event)
-        return False
 
     action = str(payload.get("action") or "")
-    if action not in REVIEW_ACTIONS:
+    if event == "pull_request" and action not in REVIEW_ACTIONS:
         LOG.info("Ignoring pull_request action %s", action)
+        return False
+    if event == "issues" and action not in ISSUE_ACTIONS:
+        LOG.info("Ignoring issues action %s", action)
+        return False
+    if event not in {"pull_request", "issues"}:
+        LOG.info("Ignoring GitHub event %s", event)
         return False
 
     repo_info = payload.get("repository") or {}
@@ -296,10 +316,28 @@ def handle_webhook_payload(context: ReviewContext, event: str, delivery: str, pa
         LOG.warning("Ignoring webhook for unexpected repo %s/%s", owner, repo)
         return False
 
-    pull = payload.get("pull_request") or {}
-    job = ReviewJob(owner, repo, int(pull["number"]), str(pull.get("head", {}).get("sha") or ""), action, delivery)
+    if event == "pull_request":
+        pull = payload.get("pull_request") or {}
+        job = ReviewJob(owner, repo, int(pull["number"]), str(pull.get("head", {}).get("sha") or ""), action, delivery)
+        context.jobs.put(job)
+        LOG.info("Queued PR #%s from %s at %s", job.number, action, job.head_sha[:12])
+        return True
+
+    issue = payload.get("issue") or {}
+    if issue.get("pull_request"):
+        LOG.info("Ignoring issues event for pull request #%s", issue.get("number"))
+        return False
+    job = ReviewJob(
+        owner,
+        repo,
+        int(issue["number"]),
+        str(issue.get("updated_at") or issue.get("node_id") or ""),
+        action,
+        delivery,
+        "issue",
+    )
     context.jobs.put(job)
-    LOG.info("Queued PR #%s from %s at %s", job.number, action, job.head_sha[:12])
+    LOG.info("Queued issue #%s from %s at %s", job.number, action, job.head_sha)
     return True
 
 
@@ -315,6 +353,10 @@ def worker_loop(context: ReviewContext) -> None:
 
 
 def process_job(context: ReviewContext, job: ReviewJob) -> None:
+    if job.kind == "issue":
+        process_issue_job(context, job)
+        return
+
     pull = context.client.get_pull(job.owner, job.repo, job.number)
     number = int(pull["number"])
     title = str(pull.get("title") or "")
@@ -356,6 +398,48 @@ def process_job(context: ReviewContext, job: ReviewJob) -> None:
         save_state(context.state_path, context.state)
 
 
+def process_issue_job(context: ReviewContext, job: ReviewJob) -> None:
+    issue = context.client.get_issue(job.owner, job.repo, job.number)
+    number = int(issue["number"])
+    title = str(issue.get("title") or "")
+    updated_at = str(issue.get("updated_at") or issue.get("node_id") or "")
+    key = f"{job.owner}/{job.repo}#{number}"
+
+    if issue.get("pull_request"):
+        LOG.info("Skipping issue #%s because it is a pull request", number)
+        return
+    with context.state_lock:
+        already_reviewed = context.state.get("issues", {}).get(key, {}).get("updated_at") == updated_at
+    if already_reviewed and not context.args.force:
+        LOG.info("Skipping issue #%s at %s; already reviewed", number, updated_at)
+        return
+
+    LOG.info("Reviewing issue #%s at %s from %s: %s", number, updated_at, job.action, title)
+    body, review_succeeded = review_issue(context.args, issue, job.owner, job.repo)
+    comment_id: int | None
+    if context.args.dry_run:
+        print(f"\n--- Issue #{number} dry-run comment ---\n{body}\n")
+        comment_id = None
+    else:
+        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body)
+        LOG.info("Posted review comment %s for issue #%s", comment_id, number)
+
+    with context.state_lock:
+        state_entry = {
+            "comment_id": comment_id,
+            "reviewed_at": now_iso(),
+            "title": title,
+            "last_delivery_id": job.delivery_id,
+            "last_action": job.action,
+        }
+        if review_succeeded:
+            state_entry["updated_at"] = updated_at
+        else:
+            state_entry["failed_updated_at"] = updated_at
+        context.state.setdefault("issues", {})[key] = state_entry
+        save_state(context.state_path, context.state)
+
+
 def review_pull(
     args: argparse.Namespace,
     pull: dict[str, Any],
@@ -374,7 +458,7 @@ def review_pull(
     try:
         prepare_worktree(args.remote, owner, repo, number, base_ref, worktree, token)
         contributor = str((pull.get("user") or {}).get("login") or "")
-        checks = run_local_checks(worktree, base_ref, contributor)
+        checks = run_local_checks(worktree, base_ref, contributor, state_dir)
         failed_checks = [check for check in checks if not check.ok]
         if failed_checks:
             return local_checks_blocked_comment(pull, checks, failed_checks), True
@@ -386,6 +470,23 @@ def review_pull(
         return failure_comment(pull, base_ref, head_sha, exc), False
     finally:
         cleanup_worktree(worktree)
+
+
+def review_issue(
+    args: argparse.Namespace,
+    issue: dict[str, Any],
+    owner: str,
+    repo: str,
+) -> tuple[str, bool]:
+    number = int(issue["number"])
+    updated_at = str(issue.get("updated_at") or "")
+    try:
+        prompt = build_issue_prompt(issue, owner, repo)
+        codex_body = run_codex(args, ROOT, prompt)
+        return normalize_issue_comment(codex_body, issue), True
+    except Exception as exc:
+        LOG.exception("Issue #%s review failed", number)
+        return failure_issue_comment(issue, updated_at, exc), False
 
 
 def prepare_worktree(
@@ -416,6 +517,7 @@ def run_local_checks(
     worktree: Path,
     base_ref: str,
     contributor: str = "",
+    state_dir: Path | None = None,
 ) -> list[CommandResult]:
     checks = [
         run_command("Changed files", ["git", "diff", "--name-status", f"origin/{base_ref}...HEAD"], worktree, timeout=120),
@@ -424,7 +526,7 @@ def run_local_checks(
         run_command("Whitespace check", ["git", "diff", "--check", f"origin/{base_ref}...HEAD"], worktree, timeout=120),
     ]
     changed = changed_files(worktree, base_ref)
-    checks.append(check_contributor_placement(contributor, changed))
+    checks.append(check_contributor_placement(contributor, changed, state_dir))
     checks.append(check_public_skill_format(worktree))
     checks.append(check_changed_file_leaks(worktree, changed))
     return checks
@@ -442,10 +544,10 @@ def changed_files(worktree: Path, base_ref: str) -> list[Path]:
     return [Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
 
 
-def check_contributor_placement(contributor: str, changed: list[Path]) -> CommandResult:
+def check_contributor_placement(contributor: str, changed: list[Path], state_dir: Path | None = None) -> CommandResult:
     tritonai_changes = sorted(str(rel) for rel in changed if rel.parts and rel.parts[0] == "tritonai")
 
-    if not tritonai_changes:
+    if not tritonai_changes or contributor_is_ai_team(contributor, state_dir):
         return CommandResult(
             "Contributor placement",
             ["public-contributor-placement"],
@@ -461,6 +563,39 @@ def check_contributor_placement(contributor: str, changed: list[Path]) -> Comman
     if len(tritonai_changes) > 50:
         lines.append(f"ERROR ... and {len(tritonai_changes) - 50} more tritonai/ path(s).")
     return CommandResult("Contributor placement", ["public-contributor-placement"], 1, "\n".join(lines))
+
+
+def contributor_is_ai_team(contributor: str, state_dir: Path | None) -> bool:
+    normalized = normalize_github_login(contributor)
+    if not normalized or state_dir is None:
+        return False
+    allowlist_path = state_dir / "ai-team-allowlist.txt"
+    try:
+        raw = allowlist_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return False
+    allowed: set[str] = set()
+    for line in raw.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        allowed.update(
+            normalized_token
+            for token in re.split(r"[\s,]+", line)
+            if (normalized_token := normalize_github_login(token))
+        )
+    return normalized in allowed
+
+
+def normalize_github_login(value: str) -> str:
+    value = value.strip().lower()
+    value = value.removeprefix("@")
+    value = value.removeprefix("https://github.com/")
+    value = value.removeprefix("http://github.com/")
+    value = value.strip("/")
+    if "/" in value:
+        value = value.rsplit("/", 1)[-1]
+    return value
 
 
 def check_public_skill_format(worktree: Path) -> CommandResult:
@@ -907,6 +1042,78 @@ Automated command output:
 """
 
 
+def build_issue_prompt(issue: dict[str, Any], owner: str, repo: str) -> str:
+    title = redact_text(str(issue.get("title") or ""))
+    body = redact_text(str(issue.get("body") or "(no issue body)"))
+    labels = ", ".join(sorted(str(label.get("name") or "") for label in issue.get("labels") or [] if label.get("name")))
+    docs = "\n\n".join(
+        repo_doc_excerpt(path)
+        for path in [
+            "README.md",
+            "CONTRIBUTING.md",
+            "AGENTS.md",
+            ".github/ISSUE_TEMPLATE",
+            ".github/PULL_REQUEST_TEMPLATE.md",
+        ]
+    )
+    return f"""You are reviewing a GitHub issue for the public UCSD Skills Library.
+
+Write the exact GitHub issue comment body that should be posted. Return only Markdown.
+
+Issue:
+- Repo: {owner}/{repo}
+- Issue: #{issue["number"]}
+- Title: {title}
+- Author: redacted by reviewer
+- State: {issue.get("state")}
+- Labels: {labels or "(none)"}
+- Updated at: {issue.get("updated_at")}
+- Body: {body}
+
+Review standard:
+- This repository is public and contains reusable agent skills. The issue should not ask contributors to add secrets, protected data, private infrastructure details, production exports, screenshots with real data, token caches, private keys, kubeconfigs, auth cookies, private hostnames, private account IDs, or internal-only runbooks.
+- Public-fit requests are reusable public-safe skill ideas, public documentation navigation, source-backed UCSD/TritonAI workflows, and generic safety rules that do not depend on restricted access.
+- Secure-only or private-fit requests include internal/restricted UCSD or TritonAI workflows, private infrastructure assumptions, deployment handoffs, authentication flows, restricted data handling, operational runbooks, private hostnames/accounts, or maintained secure operations. Recommend moving those to UCSD-Skills-Library-Secure or a private tracker without naming sensitive specifics.
+- Check whether the issue has enough information to act: requested workflow, intended skill name or area, maintainer/owner if community-scoped, public sources to cite, and expected artifact location (`community/<skill-name>/` or `tritonai/<skill-name>/` when maintainer-approved).
+- Do not modify files, labels, assignees, milestones, or issue state. Do not reveal or infer private allowlist membership. Never print a discovered secret.
+- Be concise, specific, and constructive.
+
+Required output format:
+{ISSUE_MARKER}
+## Codex Public Skills Issue Review
+
+**Verdict:** one of `Ready for maintainer triage`, `Needs clarification`, `Likely private/secure`, or `Not a skills-library issue`
+**Reviewed issue update:** `{issue.get("updated_at")}`
+
+### Fit
+- Public repo fit: pass/fail/inconclusive and why.
+- Public boundary safety: pass/fail/inconclusive and why.
+
+### Needed From Reporter
+- If nothing else is needed, write `None`.
+
+### Suggested Next Step
+- One concise next action for maintainers or the reporter.
+
+Repository guidance excerpts:
+
+{docs}
+"""
+
+
+def repo_doc_excerpt(path: str, limit: int = 7000) -> str:
+    target = ROOT / path
+    if target.is_dir():
+        files = sorted(item for item in target.iterdir() if item.is_file())[:10]
+        if not files:
+            return f"### {path}\n\n(not present)"
+        return "\n\n".join(repo_doc_excerpt(str(item.relative_to(ROOT)), limit=2500) for item in files)
+    if not target.exists():
+        return f"### {path}\n\n(not present)"
+    text = target.read_text(encoding="utf-8", errors="replace")
+    return f"### {path}\n\n{truncate(redact_text(text), limit)}"
+
+
 def normalize_comment(body: str, pull: dict[str, Any], checks: list[CommandResult]) -> str:
     cleaned = redact_text(body.strip())
     if MARKER not in cleaned:
@@ -915,6 +1122,16 @@ def normalize_comment(body: str, pull: dict[str, Any], checks: list[CommandResul
         cleaned += f"\n\n_Reviewed commit: `{pull['head']['sha']}`_"
     footer = f"\n\n---\n_Automated public-skills Codex review updated {now_iso()}._"
     return truncate_comment(cleaned + footer, checks)
+
+
+def normalize_issue_comment(body: str, issue: dict[str, Any]) -> str:
+    cleaned = redact_text(body.strip())
+    if ISSUE_MARKER not in cleaned:
+        cleaned = f"{ISSUE_MARKER}\n{cleaned}"
+    if "Reviewed issue update" not in cleaned:
+        cleaned += f"\n\n_Reviewed issue update: `{issue.get('updated_at')}`_"
+    footer = f"\n\n---\n_Automated public-skills Codex issue review updated {now_iso()}._"
+    return truncate(cleaned + footer, 60000)
 
 
 def local_checks_blocked_comment(
@@ -983,6 +1200,35 @@ def failure_comment(pull: dict[str, Any], base_ref: str, head_sha: str, exc: Exc
 
 ---
 _Automated public-skills Codex review updated {now_iso()}._
+"""
+
+
+def failure_issue_comment(issue: dict[str, Any], updated_at: str, exc: Exception) -> str:
+    detail = truncate(redact_text(str(exc)), 6000)
+    return f"""{ISSUE_MARKER}
+## Codex Public Skills Issue Review
+
+**Verdict:** `Needs clarification`
+**Reviewed issue update:** `{updated_at}`
+
+### Fit
+- Public repo fit: not completed.
+- Public boundary safety: not completed.
+
+### Needed From Reporter
+- None yet. The local public-skills issue review service failed before it could complete the review.
+
+### Suggested Next Step
+- A maintainer should check service logs and rerun the reviewer for this issue.
+
+### Error
+
+```text
+{detail}
+```
+
+---
+_Automated public-skills Codex issue review updated {now_iso()}._
 """
 
 

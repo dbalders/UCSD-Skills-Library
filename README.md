@@ -122,8 +122,8 @@ Pull requests are reviewed through three complementary layers:
 - CodeRabbit is configured by `.coderabbit.yaml` for AI review on each PR update,
   with emphasis on public-vs-secure repository fit.
 - The local Codex webhook reviewer in `docs/public-pr-review-service.md` runs
-  through the Codex app server and posts a new public-skills review comment for
-  each newly reviewed PR head SHA.
+  through the Codex app server and posts public-skills review comments for each
+  newly reviewed PR head SHA and issue update.
 
 ## Contributing
 
