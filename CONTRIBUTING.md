@@ -109,18 +109,23 @@ At minimum, inspect changed files before opening a pull request:
 
 ```sh
 find tritonai community -name SKILL.md -print
+git diff --name-only origin/main...HEAD > /tmp/public-skill-changed-files.txt
+python3 scripts/public_skill_validator.py --changed-files /tmp/public-skill-changed-files.txt
+python3 -m unittest discover -s tests
 git diff --check
 ```
 
-Pull requests also run GitHub Actions preflight checks for public-skill format,
-contributor placement, obvious leak patterns, and whitespace.
+Pull requests run the same tested validator for public-skill format, contributor
+placement, and obvious leak patterns, followed by a whitespace check.
 CodeRabbit and the optional local Codex webhook reviewer add AI review focused on
 whether PRs and issues are safe for this public repository or should move to
 `UCSD-Skills-Library-Secure`.
 
 The private AI team allowlist is not committed to this repository. Public
-automation does not reveal or branch publicly on allowlist membership; `tritonai/`
-changes require maintainer verification before merge.
+automation reports `tritonai/` changes as requiring maintainer verification
+without failing solely because the allowlist is unavailable. The local reviewer
+uses its private allowlist copy to enforce contributor placement without
+revealing membership.
 
 ## Private or Internal Skills
 
