@@ -303,6 +303,11 @@ def redact_public_text(text: str) -> str:
         r"https://\1:***@github.com",
         redacted,
     )
+    redacted = re.sub(
+        r"https://[A-Za-z0-9._~!$&+,;=:%_-]+@github\.com",
+        "https://***@github.com",
+        redacted,
+    )
     redacted = re.sub(r"github_pat_[A-Za-z0-9_]{20,}", "github_pat_***", redacted)
     redacted = re.sub(r"gh[pousr]_[A-Za-z0-9]{30,}", "gh*_***", redacted)
     redacted = re.sub(r"AKIA[0-9A-Z]{16}", "AKIA***", redacted)
@@ -311,6 +316,12 @@ def redact_public_text(text: str) -> str:
         r"(?i)([\"']?\b(?:[a-z0-9]+[_-])*(?:api[_-]?key|secret|token|password|passwd|pwd)"
         r"(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*([\"']))[^\n\"']{12,}([\"'])",
         r"\1***\3",
+        redacted,
+    )
+    redacted = re.sub(
+        r"(?i)([\"']?\b(?:[a-z0-9]+[_-])*(?:api[_-]?key|secret|token|password|passwd|pwd)"
+        r"(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*)[A-Za-z0-9_./+=:@-]{12,}",
+        r"\1***",
         redacted,
     )
     return redacted

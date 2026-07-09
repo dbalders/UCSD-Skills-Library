@@ -136,6 +136,20 @@ class PublicSkillValidatorTests(unittest.TestCase):
 
         self.assertTrue(result.ok, result.output())
 
+    def test_redactor_scrubs_short_credential_url(self) -> None:
+        credential_url = "https://" + "user:shortpass" + "@github.com"
+
+        redacted = validator.redact_public_text(credential_url)
+
+        self.assertEqual(redacted, "https://***@github.com")
+
+    def test_redactor_scrubs_unquoted_credential_assignment(self) -> None:
+        assignment = "api_key=" + ("s" * 16)
+
+        redacted = validator.redact_public_text(assignment)
+
+        self.assertEqual(redacted, "api_key=***")
+
     def test_sensitive_file_type_is_blocked(self) -> None:
         path = Path("community/example-skill/private.key")
         target = self.root / path
