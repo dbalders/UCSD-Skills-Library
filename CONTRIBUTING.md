@@ -115,7 +115,7 @@ git diff --check
 Pull requests also run GitHub Actions preflight checks for public-skill format,
 contributor placement, obvious leak patterns, and whitespace.
 CodeRabbit and the optional local Codex webhook reviewer add AI review focused on
-whether a skill is safe for this public repository or should move to
+whether PRs and issues are safe for this public repository or should move to
 `UCSD-Skills-Library-Secure`.
 
 The private AI team allowlist is not committed to this repository. Public

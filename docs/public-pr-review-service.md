@@ -1,25 +1,26 @@
-# Public PR Review Service
+# Public PR and Issue Review Service
 
 This repo includes a local GitHub webhook receiver that reviews public-skill PRs
-through the Codex app server and posts a new GitHub comment for each newly
-reviewed PR head SHA.
+and issues through the Codex app server. It posts a new GitHub comment for each
+newly reviewed PR head SHA and each newly reviewed issue update.
 
 The service is intentionally separate from GitHub Actions and CodeRabbit:
 
 - GitHub Actions runs lightweight preflight checks.
 - CodeRabbit gives broad AI review and inline comments when the GitHub App is enabled.
-- This service gives a local Codex review focused on public-skill policy and
-  whether a change belongs here or in `UCSD-Skills-Library-Secure`.
+- This service gives a local Codex review focused on public-skill policy,
+  whether a change belongs here or in `UCSD-Skills-Library-Secure`, and whether
+  a new issue is safe/actionable enough for public maintainer triage.
 
 ## Architecture
 
 ```text
-GitHub pull_request webhook
+GitHub pull_request / issues webhook
   -> Cloudflare Tunnel hostname, or any HTTPS tunnel
   -> http://127.0.0.1:8787/github/webhook
   -> local Codex review worker
   -> Codex app-server JSONL client
-  -> new PR comment for each reviewed head SHA
+  -> new PR or issue comment for each reviewed head SHA/update
 ```
 
 The webhook handler verifies GitHub's `X-Hub-Signature-256`, returns `202 Accepted`
@@ -39,6 +40,15 @@ and `edited`, the service:
 - Posts a new comment marked with `<!-- ucsd-public-skills-codex-pr-review -->`.
 - Records reviewed head SHAs in `.public-pr-reviewer/state.json` so the same commit
   is not reviewed twice unless `--force` is used.
+
+For `issues` actions `opened`, `reopened`, and `edited`, the service:
+
+- Ignores pull requests delivered through the Issues API.
+- Reviews the issue body against public repository fit, public-boundary safety,
+  missing reporter information, and likely next maintainer action.
+- Posts a new comment marked with `<!-- ucsd-public-skills-codex-issue-review -->`.
+- Records reviewed issue `updated_at` values in `.public-pr-reviewer/state.json`
+  so the same issue update is not reviewed twice unless `--force` is used.
 
 ## Local Setup
 
@@ -77,6 +87,12 @@ Manual review without a webhook:
 python3 scripts/public_pr_review_service.py --review-pr 12
 ```
 
+Manual issue review:
+
+```sh
+python3 scripts/public_pr_review_service.py --review-issue 34
+```
+
 Dry-run manual review:
 
 ```sh
@@ -90,7 +106,7 @@ In GitHub repository settings:
 - Payload URL: `https://<your-tunnel-host>/github/webhook`
 - Content type: `application/json`
 - Secret: the value of `PR_REVIEW_WEBHOOK_SECRET`
-- Events: choose **Pull requests**
+- Events: choose **Pull requests** and **Issues**
 - Active: enabled
 
 Use the GitHub webhook redelivery button to replay a delivery after changing the
@@ -127,11 +143,16 @@ reviewer. The tested automation path is `codex app-server --stdio`.
 - Use `--allow-unsigned` only for local webhook testing.
 - The service posts a new comment for each newly reviewed head SHA. It does not
   update or replace older comments.
+- The service posts a new issue-review comment for each newly reviewed issue
+  update. It does not update labels, assignees, milestones, or issue state.
 - Only authors on the private AI team allowlist may contribute to `tritonai/`.
   Other contributors should use `community/<skill-name>/` with `maintainer:`.
-- The private allowlist is not committed to git. Public reviewer comments do not
-  reveal or branch on allowlist membership; `tritonai/` changes are reported as
-  requiring maintainer verification.
+- The private allowlist is not committed to git. The local reviewer can read
+  `.public-pr-reviewer/ai-team-allowlist.txt` to avoid blocking allowlisted
+  authors on `tritonai/` changes, but public reviewer comments keep neutral
+  wording and do not reveal membership. If the allowlist is missing or the
+  author is not listed, `tritonai/` changes are reported as requiring maintainer
+  verification.
 - Local state and worktrees live under `.public-pr-reviewer/`, which is ignored by git.
 - Token/secret-like environment variables are scrubbed before running Codex.
 - The reviewer does not execute changed repository scripts.

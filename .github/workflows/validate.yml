@@ -389,5 +389,5 @@ jobs:
             echo
             echo "## AI Review"
             echo "CodeRabbit is configured in .coderabbit.yaml to review public/secure placement, leakage risk, and CONTRIBUTING.md fit on every PR update."
-            echo "The optional local Codex webhook reviewer is documented in docs/public-pr-review-service.md and posts a new PR comment for each reviewed head SHA."
+            echo "The optional local Codex webhook reviewer is documented in docs/public-pr-review-service.md and posts review comments for reviewed PR head SHAs and issue updates."
           } >> "$GITHUB_STEP_SUMMARY"
