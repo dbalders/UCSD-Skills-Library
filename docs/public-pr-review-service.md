@@ -32,8 +32,9 @@ For `pull_request` actions `opened`, `reopened`, `synchronize`, `ready_for_revie
 and `edited`, the service:
 
 - Fetches the PR into an isolated git worktree under `.public-pr-reviewer/`.
-- Runs trusted local checks for changed files, diff stat, whitespace, contributor
-  placement, public-skill format, and high-confidence leak patterns.
+- Runs `scripts/public_skill_validator.py`, the same deterministic contributor
+  placement, public-skill format, and high-confidence leak checks used by GitHub
+  Actions, plus local changed-file, diff-stat, and whitespace checks.
 - Asks Codex to review merge readiness against `README.md`, `CONTRIBUTING.md`,
   `AGENTS.md`, `.github/CODEOWNERS`, `.github/PULL_REQUEST_TEMPLATE.md`, and the
   PR diff.

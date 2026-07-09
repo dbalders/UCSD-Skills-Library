@@ -28,6 +28,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+import public_skill_validator as skill_validator
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKER = "<!-- ucsd-public-skills-codex-pr-review -->"
@@ -544,200 +546,31 @@ def changed_files(worktree: Path, base_ref: str) -> list[Path]:
     return [Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
 
 
-def check_contributor_placement(contributor: str, changed: list[Path], state_dir: Path | None = None) -> CommandResult:
-    tritonai_changes = sorted(str(rel) for rel in changed if rel.parts and rel.parts[0] == "tritonai")
-
-    if not tritonai_changes or contributor_is_ai_team(contributor, state_dir):
-        return CommandResult(
-            "Contributor placement",
-            ["public-contributor-placement"],
-            0,
-            "No public contributor placement action is being reported.",
-        )
-
-    lines = [
-        "ERROR TritonAI placement requires maintainer verification before merge.",
-        "ERROR Move the skill contribution to community/<skill-name>/ and add frontmatter maintainer: unless a maintainer confirms private placement approval.",
-    ]
-    lines.extend(["ERROR Changed tritonai/ paths:", *(f"ERROR - {path}" for path in tritonai_changes[:50])])
-    if len(tritonai_changes) > 50:
-        lines.append(f"ERROR ... and {len(tritonai_changes) - 50} more tritonai/ path(s).")
-    return CommandResult("Contributor placement", ["public-contributor-placement"], 1, "\n".join(lines))
+def validation_command_result(
+    result: skill_validator.ValidationResult,
+    command: list[str],
+) -> CommandResult:
+    return CommandResult(result.label, command, 0 if result.ok else 1, result.output())
 
 
-def contributor_is_ai_team(contributor: str, state_dir: Path | None) -> bool:
-    normalized = normalize_github_login(contributor)
-    if not normalized or state_dir is None:
-        return False
-    allowlist_path = state_dir / "ai-team-allowlist.txt"
-    try:
-        raw = allowlist_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return False
-    allowed: set[str] = set()
-    for line in raw.splitlines():
-        line = line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        allowed.update(
-            normalized_token
-            for token in re.split(r"[\s,]+", line)
-            if (normalized_token := normalize_github_login(token))
-        )
-    return normalized in allowed
-
-
-def normalize_github_login(value: str) -> str:
-    value = value.strip().lower()
-    value = value.removeprefix("@")
-    value = value.removeprefix("https://github.com/")
-    value = value.removeprefix("http://github.com/")
-    value = value.strip("/")
-    if "/" in value:
-        value = value.rsplit("/", 1)[-1]
-    return value
+def check_contributor_placement(
+    contributor: str,
+    changed: list[Path],
+    state_dir: Path | None = None,
+) -> CommandResult:
+    allowlist_path = state_dir / "ai-team-allowlist.txt" if state_dir is not None else None
+    result = skill_validator.validate_contributor_placement(contributor, changed, allowlist_path)
+    return validation_command_result(result, ["public-contributor-placement"])
 
 
 def check_public_skill_format(worktree: Path) -> CommandResult:
-    errors: list[str] = []
-    warnings: list[str] = []
-    allowed_roots = {"tritonai", "community"}
-    skill_files = sorted(path for root in allowed_roots for path in worktree.glob(f"{root}/*/SKILL.md"))
-    if not skill_files:
-        errors.append("No public skills found. Add tritonai/<skill-name>/SKILL.md or community/<skill-name>/SKILL.md.")
-
-    misplaced = sorted(
-        path
-        for path in worktree.glob("*/SKILL.md")
-        if path.parts[0] not in allowed_roots and not path.parts[0].startswith(".")
-    )
-    for path in misplaced:
-        rel = path.relative_to(worktree)
-        errors.append(f"{rel}: public skills must live under tritonai/ or community/, not at repo root")
-
-    if (worktree / "skills").exists():
-        errors.append("Do not create a top-level skills/ folder in this public repository")
-
-    name_re = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-    forbidden = {"catalog", "tier", "publicationStatus", "category", "status"}
-    for skill in skill_files:
-        rel = skill.relative_to(worktree)
-        collection = rel.parts[0]
-        folder = skill.parent.name
-        meta = parse_frontmatter(skill, errors)
-        if not name_re.fullmatch(folder):
-            errors.append(f"{rel}: folder must be lowercase hyphenated")
-        if meta.get("name", "").strip("'\"") != folder:
-            errors.append(f"{rel}: frontmatter name must match folder name '{folder}'")
-        if not meta.get("description"):
-            errors.append(f"{rel}: frontmatter description is required")
-        if collection == "community" and not meta.get("maintainer"):
-            errors.append(f"{rel}: community skills must include frontmatter maintainer")
-        extra = forbidden & set(meta)
-        if extra:
-            errors.append(f"{rel}: remove generated catalog/storefront metadata: {', '.join(sorted(extra))}")
-        if "allowed-tools" in meta:
-            tools = [tool.strip() for tool in meta["allowed-tools"].split(",") if tool.strip()]
-            if len(tools) > 6:
-                warnings.append(f"{rel}: allowed-tools has {len(tools)} entries; confirm each one is needed")
-
-    output = "\n".join([*(f"WARN {item}" for item in warnings), *(f"ERROR {item}" for item in errors)])
-    return CommandResult("Public skill format", ["public-format-check"], 1 if errors else 0, output or "public-format-check: OK")
-
-
-def parse_frontmatter(path: Path, errors: list[str]) -> dict[str, str]:
-    text = path.read_text(encoding="utf-8", errors="replace")
-    rel = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
-    if not text.startswith("---\n"):
-        errors.append(f"{rel}: SKILL.md must start with YAML frontmatter")
-        return {}
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        errors.append(f"{rel}: YAML frontmatter is not closed")
-        return {}
-    data: dict[str, str] = {}
-    for raw in parts[1].splitlines():
-        if not raw or raw[:1].isspace() or ":" not in raw:
-            continue
-        key, value = raw.split(":", 1)
-        data[key.strip()] = value.strip()
-    return data
+    result = skill_validator.validate_public_skill_format(worktree)
+    return validation_command_result(result, ["public-format-check"])
 
 
 def check_changed_file_leaks(worktree: Path, changed: list[Path]) -> CommandResult:
-    skip_suffixes = {".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".gz", ".tgz", ".woff", ".woff2", ".ttf"}
-    patterns = [
-        (re.compile(r"AKIA[0-9A-Z]{16}"), "AWS access key ID"),
-        (re.compile(r"https://[A-Za-z0-9._~!$&+,;=:%_-]+@github\.com"), "credential-bearing GitHub URL"),
-        (re.compile(r"github_pat_[A-Za-z0-9_]{20,}"), "GitHub fine-grained token"),
-        (re.compile(r"gh[pousr]_[A-Za-z0-9]{30,}"), "GitHub token"),
-        (re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}"), "Slack token"),
-        (re.compile(r"-----BEGIN[A-Z ]*PRIVATE KEY-----"), "private key block"),
-    ]
-    credential_assignment = re.compile(
-        r"(?i)[\"']?\b(?:[a-z0-9]+[_-])*(api[_-]?key|secret|token|password|passwd|pwd)(?:[_-][a-z0-9]+)*\b[\"']?\s*[:=]\s*"
-        r"(?:(?P<quote>[\"'])(?P<quoted>[^\n\"']{12,})(?P=quote)|(?P<bare>[A-Za-z0-9_./+=:@-]{12,}))"
-    )
-    placeholder_markers = ("...", "changeme", "dummy", "example", "fake", "placeholder", "redacted", "replace-me")
-    findings: list[str] = []
-
-    def add_finding(rel: Path, detail: str) -> None:
-        findings.append(f"{redact_text(str(rel))}:{detail}")
-
-    def scan_text_for_leaks(text: str) -> list[str]:
-        labels: list[str] = []
-        for regex, label in patterns:
-            if regex.search(text):
-                labels.append(f"possible {label}")
-        for match in credential_assignment.finditer(text):
-            value = (match.group("quoted") or match.group("bare") or "").strip()
-            lowered = value.lower()
-            if re.fullmatch(r"[A-Z][A-Z0-9_]{5,}", value):
-                continue
-            if value.startswith(("$", "{{", "<")):
-                continue
-            if lowered.startswith(("env.", "os.environ", "process.env", "secrets.")):
-                continue
-            if any(marker in lowered for marker in placeholder_markers):
-                continue
-            labels.append("possible hardcoded credential-looking value")
-            break
-        return labels
-
-    for rel in changed:
-        for label in scan_text_for_leaks(str(rel)):
-            add_finding(rel, f"changed path contains {label}")
-        path = worktree / rel
-        if not path.exists() or not path.is_file() or path.suffix.lower() in skip_suffixes:
-            continue
-        if path.name in {".env", ".npmrc", ".pypirc"} or path.suffix.lower() in {".pem", ".key", ".p12", ".pfx"}:
-            add_finding(rel, "sensitive file type should not be committed")
-            continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        for regex, label in patterns:
-            match = regex.search(text)
-            if match:
-                add_finding(rel, f"{line_for(text, match.start())}: possible {label}")
-        for match in credential_assignment.finditer(text):
-            value = (match.group("quoted") or match.group("bare") or "").strip()
-            lowered = value.lower()
-            if re.fullmatch(r"[A-Z][A-Z0-9_]{5,}", value):
-                continue
-            if value.startswith(("$", "{{", "<")):
-                continue
-            if lowered.startswith(("env.", "os.environ", "process.env", "secrets.")):
-                continue
-            if any(marker in lowered for marker in placeholder_markers):
-                continue
-            add_finding(rel, f"{line_for(text, match.start())}: possible hardcoded credential-looking value")
-            break
-
-    output = "\n".join(f"ERROR {item}" for item in findings)
-    return CommandResult("High-confidence leak scan", ["public-leak-scan"], 1 if findings else 0, output or "public-leak-scan: OK")
-
-
-def line_for(text: str, index: int) -> int:
-    return text.count("\n", 0, index) + 1
+    result = skill_validator.validate_changed_file_leaks(worktree, changed)
+    return validation_command_result(result, ["public-leak-scan"])
 
 
 def run_codex(args: argparse.Namespace, worktree: Path, prompt: str) -> str:

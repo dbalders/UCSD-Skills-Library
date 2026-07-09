@@ -116,9 +116,9 @@ Pull requests are reviewed through three complementary layers:
 
 - GitHub Actions runs lightweight preflight checks for contributor placement,
   public-skill format, obvious leak patterns, and whitespace.
-  To avoid exposing private membership, public checks require maintainer
-  verification for `tritonai/` changes instead of branching on a public allowlist
-  result.
+  To avoid exposing private membership, public checks report maintainer
+  verification for `tritonai/` changes without failing just because the private
+  allowlist is unavailable.
 - CodeRabbit is configured by `.coderabbit.yaml` for AI review on each PR update,
   with emphasis on public-vs-secure repository fit.
 - The local Codex webhook reviewer in `docs/public-pr-review-service.md` runs
