@@ -1,6 +1,6 @@
 ---
 name: tritonai-harness-config
-description: Investigate and explain the live TritonAI Harness environment using sanitized runtime and source evidence. Use for Harness config files, CODEX_HOME or TRITONAI_HOME, permissions or sandbox modes, models and providers, skills, logs, installation paths, or comparisons with personal Codex or Codex Desktop. Also use for T3 Code or t3code configuration and inherited identifiers when the Harness/upstream relationship matters, not incidental source mentions.
+description: Investigate and explain the live TritonAI Harness environment using sanitized runtime and source evidence. Use for Harness config files, CODEX_HOME or TRITONAI_HOME, permissions or sandbox modes, models and providers, skills, logs, installation paths, or comparisons with personal Codex or Codex Desktop. Also use for explicit T3 Code or t3code configuration/runtime questions, Harness-versus-T3 Code comparisons, or questions about a t3code identifier in a Harness diagnostic; not unrelated source-code mentions.
 ---
 
 # TritonAI Harness Configuration
@@ -56,8 +56,10 @@ Search narrowly and exclude generated or dependency trees, for example:
 rg -n --hidden \
   --glob '!**/.git/**' --glob '!**/node_modules/**' \
   --glob '!**/dist/**' --glob '!**/build/**' \
-  'CODEX_HOME|TRITONAI_HOME|config\.toml|sandbox|approval|provider|skills|logs' .
+  'CODEX_HOME|TRITONAI_HOME|config\.toml' .
 ```
+
+Add only terms needed for the active question, such as one permission-mode or log-path identifier. Do not run a broad union of unrelated terms.
 
 For an effective Codex config question:
 
