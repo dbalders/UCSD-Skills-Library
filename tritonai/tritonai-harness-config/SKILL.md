@@ -50,13 +50,17 @@ Never infer that `~/.codex/config.toml` is merged or effective when `CODEX_HOME`
 
 ### 3. Trace the effective setting
 
-Search narrowly and exclude generated or dependency trees, for example:
+Search only the resolved Harness source root. Do not search the user home or agent configuration roots. For example, after setting `harness_repo` to the verified checkout:
 
 ```sh
-rg -n --hidden \
+harness_repo="/path/to/resolved/TritonAI-Harness"
+rg -n \
+  --glob '!**/.claude/**' --glob '!**/.codex/**' \
+  --glob '!**/.gemini/**' --glob '!**/.env*' \
+  --glob '!**/auth*.json' --glob '!**/logs/**' \
   --glob '!**/.git/**' --glob '!**/node_modules/**' \
   --glob '!**/dist/**' --glob '!**/build/**' \
-  'CODEX_HOME|TRITONAI_HOME|config\.toml' .
+  'CODEX_HOME|TRITONAI_HOME|config\.toml' "$harness_repo"
 ```
 
 Add only terms needed for the active question, such as one permission-mode or log-path identifier. Do not run a broad union of unrelated terms.
@@ -68,6 +72,12 @@ For an effective Codex config question:
 3. Locate the config under that home.
 4. Check arguments, overlays, symlinks, and runtime overrides.
 5. Inspect only requested non-secret keys.
+
+Query a resolved config with an anchored, named-key pattern rather than printing the file, for example:
+
+```sh
+rg -n '^sandbox_mode\s*=' "/path/to/resolved-CODEX_HOME/config.toml"
+```
 
 If the user says the proposed file is wrong, retrace from the active process instead of defending a default-derived path.
 
