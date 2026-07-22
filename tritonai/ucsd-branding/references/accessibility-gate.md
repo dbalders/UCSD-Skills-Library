@@ -33,12 +33,19 @@ Do not rely on an agent remembering to run a one-time audit.
    failures.
 2. Include that command in the default validation command used by contributors.
 3. Run it in pull-request checks and in the production-branch deployment job.
-4. Scan every generated route at a mobile and desktop width when practical.
+4. Derive coverage from a documented route inventory and scan every route at
+   each required mobile and desktop width by default. If a route/viewport pair
+   cannot be scanned, record the route, viewport, reason, owner, and required
+   manual follow-up in the CI report so the exception is reviewable.
 5. Fail on browser-load errors, new axe/WCAG violations, horizontal overflow,
    and failed shared-component keyboard interactions.
 6. Save a machine-readable report as a CI artifact so reviewers can inspect the
    affected route, viewport, rule, impact, and target.
-7. Keep manual checks in the definition of done even when CI passes.
+7. Keep applicable manual checks in the definition of done even when CI passes.
+   A pending or failed check blocks publication unless an authorized repository,
+   content, or accessibility owner records an explicit waiver naming the
+   approver, scope, reason, unresolved risks, remediation owner, and follow-up.
+   An agent must not grant its own waiver or infer that approval exists.
 
 Use the project's existing commands and package manager. Do not invent a second
 test stack when an equivalent maintained check already exists.

@@ -43,8 +43,13 @@ For every page, template, component, module, widget, or style change:
    keyboard, visible-focus, zoom/reflow, contrast, semantic, and screen-reader
    spot checks relevant to the changed component.
 6. Block publication on new automated violations, browser errors, horizontal
-   overflow, or failed keyboard interactions. Report manual checks that still
-   need a person; never describe an automated pass as full compliance.
+   overflow, failed keyboard interactions, or any applicable manual check that
+   is pending or failed.
+7. Continue with an unresolved check only when an authorized repository,
+   content, or accessibility owner records an explicit waiver naming the
+   approver, scope, reason, unresolved risks, remediation owner, and follow-up.
+   An agent must not grant its own waiver or infer approval. Never describe an
+   automated pass or a waiver as full compliance.
 
 ### 2. Fetch the live sources first
 
