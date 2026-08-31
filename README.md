@@ -21,6 +21,7 @@ UCSD-Skills-Library/
     README.md
     skill-name/
       SKILL.md
+      LICENSE
       references/
       assets/
       scripts/
@@ -29,6 +30,7 @@ UCSD-Skills-Library/
     README.md
     skill-name/
       SKILL.md
+      LICENSE
       references/
       assets/
       scripts/
@@ -37,7 +39,8 @@ UCSD-Skills-Library/
 - `tritonai/` is for skills maintained by the TritonAI or UCSD AI Tools team. Only authors on the private AI team allowlist may contribute skills there.
 - `community/` is for skills contributed by everyone else and reviewed before merge.
 - Each skill lives in its own folder.
-- Each skill must have a `SKILL.md` entrypoint.
+- Each skill must have a `SKILL.md` entrypoint and a `LICENSE` matching the
+  repository MIT license.
 
 ## Installing a Skill
 
@@ -78,6 +81,7 @@ After copying, the installed skill should look like this:
 ```text
 ~/.agents/skills/example-skill/
   SKILL.md
+  LICENSE
   references/
   assets/
   scripts/
