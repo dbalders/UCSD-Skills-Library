@@ -2,6 +2,8 @@
 
 Public, reusable agent skills for UC San Diego and TritonAI workflows.
 
+Created and maintained by David Balderston for UC San Diego.
+
 An agent skill is a folder of instructions, references, scripts, and assets that an AI coding agent can load when a task matches the skill's trigger description.
 
 This repository is intentionally lightweight. It is a skills library, not a dashboard, installer, generated catalog, or internal platform runbook.
@@ -131,4 +133,7 @@ Contributions are welcome through pull requests. See `CONTRIBUTING.md` for the e
 
 ## License
 
-This repository is available under the MIT License. See `LICENSE`.
+This repository is available under the MIT License. See `LICENSE`. Each
+individual skill folder also includes the license so it remains available when
+that skill is copied or distributed on its own. Community contributors remain
+credited through skill maintainer metadata and Git history.
