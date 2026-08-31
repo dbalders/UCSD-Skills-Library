@@ -2,6 +2,8 @@
 
 Public, reusable agent skills for UC San Diego and TritonAI workflows.
 
+Created and maintained by David Balderston for UC San Diego.
+
 An agent skill is a folder of instructions, references, scripts, and assets that an AI coding agent can load when a task matches the skill's trigger description.
 
 This repository is intentionally lightweight. It is a skills library, not a dashboard, installer, generated catalog, or internal platform runbook.
@@ -19,6 +21,7 @@ UCSD-Skills-Library/
     README.md
     skill-name/
       SKILL.md
+      LICENSE
       references/
       assets/
       scripts/
@@ -27,6 +30,7 @@ UCSD-Skills-Library/
     README.md
     skill-name/
       SKILL.md
+      LICENSE
       references/
       assets/
       scripts/
@@ -35,7 +39,8 @@ UCSD-Skills-Library/
 - `tritonai/` is for skills maintained by the TritonAI or UCSD AI Tools team. Only authors on the private AI team allowlist may contribute skills there.
 - `community/` is for skills contributed by everyone else and reviewed before merge.
 - Each skill lives in its own folder.
-- Each skill must have a `SKILL.md` entrypoint.
+- Each skill must have a `SKILL.md` entrypoint and a `LICENSE` matching the
+  repository MIT license.
 
 ## Installing a Skill
 
@@ -76,6 +81,7 @@ After copying, the installed skill should look like this:
 ```text
 ~/.agents/skills/example-skill/
   SKILL.md
+  LICENSE
   references/
   assets/
   scripts/
@@ -131,4 +137,7 @@ Contributions are welcome through pull requests. See `CONTRIBUTING.md` for the e
 
 ## License
 
-This repository is available under the MIT License. See `LICENSE`.
+This repository is available under the MIT License. See `LICENSE`. Each
+individual skill folder also includes the license so it remains available when
+that skill is copied or distributed on its own. Community contributors remain
+credited through skill maintainer metadata and Git history.
