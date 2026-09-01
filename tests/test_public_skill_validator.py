@@ -85,6 +85,13 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertTrue(result.ok, result.output())
         self.assertIn("Skills found: 1", result.output())
 
+    def test_standard_optional_frontmatter_is_allowed(self) -> None:
+        self.write_skill(extra="allowed-tools: Read, Bash")
+
+        result = validator.validate_public_skill_format(self.root)
+
+        self.assertTrue(result.ok, result.output())
+
     def test_community_skill_requires_maintainer(self) -> None:
         self.write_skill(maintainer=None)
 
@@ -101,6 +108,25 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertIn("frontmatter name must match", result.output())
         self.assertIn("catalog", result.output())
+
+    def test_standard_metadata_is_allowed_but_duplicate_frontmatter_is_blocked(self) -> None:
+        self.write_skill(extra="allowed-tools: Bash\nname: duplicate-name")
+
+        result = validator.validate_public_skill_format(self.root)
+
+        self.assertFalse(result.ok)
+        self.assertNotIn("unsupported frontmatter field", result.output())
+        self.assertIn("duplicate frontmatter field", result.output())
+
+    def test_oversized_skill_is_blocked(self) -> None:
+        skill = self.write_skill()
+        with skill.open("a", encoding="utf-8") as handle:
+            handle.write("x" * validator.MAX_SKILL_BYTES)
+
+        result = validator.validate_public_skill_format(self.root)
+
+        self.assertFalse(result.ok)
+        self.assertIn("64 KiB Commons limit", result.output())
 
     def test_root_level_skill_is_blocked(self) -> None:
         self.write_skill()

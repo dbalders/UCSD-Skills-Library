@@ -823,7 +823,7 @@ def build_codex_prompt(
     checks_markdown = "\n\n".join(check.markdown(limit=80000 if check.label == "PR diff" else 6000) for check in checks)
     pr_title = redact_text(str(pull.get("title") or ""))
     pr_body = redact_text(str(pull.get("body") or "(no PR body)"))
-    return f"""You are reviewing a pull request for the public UCSD Skills Library.
+    return f"""You are reviewing a pull request for TritonAI Commons, the public skills library.
 
 Write the exact GitHub PR comment body that should be posted. Return only Markdown.
 
@@ -889,7 +889,7 @@ def build_issue_prompt(issue: dict[str, Any], owner: str, repo: str) -> str:
             ".github/PULL_REQUEST_TEMPLATE.md",
         ]
     )
-    return f"""You are reviewing a GitHub issue for the public UCSD Skills Library.
+    return f"""You are reviewing a GitHub issue for TritonAI Commons, the public skills library.
 
 Write the exact GitHub issue comment body that should be posted. Return only Markdown.
 

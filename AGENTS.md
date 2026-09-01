@@ -1,6 +1,6 @@
 # AGENTS
 
-Instructions for AI agents working in this public UCSD Skills Library.
+Instructions for AI agents working in the public TritonAI Commons repository.
 
 ## Read First
 

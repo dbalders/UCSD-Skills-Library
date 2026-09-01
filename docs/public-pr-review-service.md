@@ -1,4 +1,4 @@
-# Public PR and Issue Review Service
+# TritonAI Commons PR and Issue Review Service
 
 This repo includes a local GitHub webhook receiver that reviews public-skill PRs
 and issues through the Codex app server. It posts a new GitHub comment for each
