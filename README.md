@@ -2,6 +2,8 @@
 
 TritonAI Commons is the public library of reusable agent skills for UC San Diego, TritonAI, and community workflows. The repository URL remains `https://github.com/dbalders/UCSD-Skills-Library` for compatibility with existing Harness installs and links.
 
+Created and maintained by David Balderston for UC San Diego.
+
 An agent skill is a folder of instructions, references, scripts, and assets that an AI coding agent can load when a task matches the skill's trigger description.
 
 This repository is intentionally lightweight. Harness provides the publishing experience; this repository remains the reviewable source of truth rather than becoming a dashboard, installer, generated catalog, or internal platform runbook.
@@ -19,6 +21,7 @@ UCSD-Skills-Library/
     README.md
     skill-name/
       SKILL.md
+      LICENSE
       references/
       assets/
       scripts/
@@ -27,6 +30,7 @@ UCSD-Skills-Library/
     README.md
     skill-name/
       SKILL.md
+      LICENSE
       references/
       assets/
       scripts/
@@ -35,7 +39,8 @@ UCSD-Skills-Library/
 - `tritonai/` is for skills maintained by the TritonAI or UCSD AI Tools team. Only authors on the private AI team allowlist may contribute skills there.
 - `community/` is for skills contributed by everyone else and reviewed before merge.
 - Each skill lives in its own folder.
-- Each skill must have a `SKILL.md` entrypoint.
+- Each skill must have a `SKILL.md` entrypoint and a `LICENSE` matching the
+  repository MIT license.
 
 ## Installing a Skill
 
@@ -76,6 +81,7 @@ After copying, the installed skill should look like this:
 ```text
 ~/.agents/skills/example-skill/
   SKILL.md
+  LICENSE
   references/
   assets/
   scripts/
@@ -85,7 +91,7 @@ After copying, the installed skill should look like this:
 
 Create, install, and use a skill locally in Harness first. When it is ready to share, find it under **Settings → Skills → Your Skills** and select **Share with UCSD**.
 
-Harness reads that existing local skill folder, validates its public copy, and submits it under `community/<skill-name>/`. Supporting text files are included. If the skill has no maintainer, the submitted copy names the signed-in GitHub user without changing the local file.
+Harness reads that existing local skill folder, validates its public copy, and submits it under `community/<skill-name>/`. Supporting text files are included. If the skill has no maintainer or matching license, the submitted copy names the signed-in GitHub user and includes the repository MIT license without changing local files. A conflicting local license must be resolved before submission.
 
 Harness uses the connected GitHub integration to handle a fork, contribution branch, commits, and ready-for-review pull request. It never merges automatically, never overwrites an existing Commons skill, and does not expose or ask for a raw GitHub token. Campus approval is a later maintainer decision, not a contributor-selected submission scope.
 
@@ -141,4 +147,7 @@ Contributions are welcome through Harness sharing or ordinary pull requests. See
 
 ## License
 
-This repository is available under the MIT License. See `LICENSE`.
+This repository is available under the MIT License. See `LICENSE`. Each
+individual skill folder also includes the license so it remains available when
+that skill is copied or distributed on its own. Community contributors remain
+credited through skill maintainer metadata and Git history.

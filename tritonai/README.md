@@ -10,11 +10,14 @@ Each skill should live in its own folder:
 tritonai/
   example-skill/
     SKILL.md
+    LICENSE
     references/
     assets/
     scripts/
 ```
 
-Only `SKILL.md` is required. Add `references/`, `assets/`, or `scripts/` only when the skill genuinely needs them.
+Every skill must include `SKILL.md` and a `LICENSE` identical to the repository
+MIT license. Add `references/`, `assets/`, or `scripts/` only when the skill
+genuinely needs them.
 
 Do not add per-skill `README.md`, installation guides, quick references, changelogs, or other auxiliary docs. Keep internal-only workflows, deployment procedures, private infrastructure details, and restricted data handling in `UCSD-Skills-Library-Secure` instead.

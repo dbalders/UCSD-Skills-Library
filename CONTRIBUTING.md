@@ -4,6 +4,8 @@ Thanks for helping improve TritonAI Commons. This repository is intentionally si
 
 The easiest contribution path is to create and use a skill locally in Harness, then select **Settings → Skills → Your Skills → Share with UCSD**. Harness submits that existing skill folder and hides the GitHub fork and branch mechanics, but the resulting pull request follows every rule in this document and is never merged automatically.
 
+Harness adds the repository MIT license to the submitted public copy when it is missing locally. It refuses a conflicting local license rather than changing the contributor's licensing choice silently.
+
 You can also ask Harness chat to submit a named local skill to UCSD and approve the public write. Both entry points use your connected GitHub account; Harness sends disconnected contributors through the GitHub plugin sign-in or account-creation flow before retrying.
 
 ## Repository Shape
@@ -14,6 +16,7 @@ Use this layout for skills:
 tritonai/
   skill-name/
     SKILL.md
+    LICENSE
     references/
     assets/
     scripts/
@@ -21,12 +24,15 @@ tritonai/
 community/
   skill-name/
     SKILL.md
+    LICENSE
     references/
     assets/
     scripts/
 ```
 
-Only `SKILL.md` is required. Add `references/`, `assets/`, or `scripts/` only when the skill genuinely needs them.
+Every skill must include `SKILL.md` and a `LICENSE` identical to the repository
+MIT license. Add `references/`, `assets/`, or `scripts/` only when the skill
+genuinely needs them.
 
 Only authors on the private AI team allowlist may contribute skills under `tritonai/`. Everyone else should put their skill under `community/<skill-name>/` and include `maintainer:` in `SKILL.md` frontmatter.
 
@@ -36,6 +42,8 @@ Only authors on the private AI team allowlist may contribute skills under `trito
 - Keep the skill focused on one job.
 - Use lowercase, hyphenated folder names.
 - Make the folder name match the `name:` field in `SKILL.md`.
+- Copy the repository `LICENSE` into the skill folder so the MIT terms remain
+  available when the skill is distributed on its own.
 - Community skills must include a `maintainer:` field in `SKILL.md` frontmatter naming the contributor, team, or organization responsible for the skill.
 - Contributors outside the private AI team allowlist must use `community/<skill-name>/`, not `tritonai/<skill-name>/`.
 - Do not include internal UCSD credentials, private service details, customer data, secrets, or non-public operational runbooks.
@@ -48,12 +56,13 @@ If you point an AI agent at this repository to create or edit a skill, give it t
 2. Create or update one skill at a time.
 3. Put TritonAI or UCSD AI Tools maintained skills under `tritonai/<skill-name>/` only when the PR author is on the private AI team allowlist.
 4. Put all other contributed skills under `community/<skill-name>/` and include a `maintainer:` frontmatter field.
-5. Do not create a top-level `skills/` folder in this public repo.
-6. Do not add dashboard, catalog, installer, or deployment tooling unless the task explicitly asks for repository tooling.
-7. Do not add per-skill `README.md`, installation guides, quick references, changelogs, or other auxiliary docs. Put agent-needed detail in `SKILL.md` or `references/`.
-8. Keep long references in `references/`; keep `SKILL.md` focused on when to use the skill and how to run the workflow.
-9. Use placeholders in examples. Do not invent realistic UCSD people, emails, IDs, tokens, hosts, or private service names.
-10. Run the local checks documented below, or clearly say why they could not be run.
+5. Include a `LICENSE` identical to the repository MIT license in every skill folder.
+6. Do not create a top-level `skills/` folder in this public repo.
+7. Do not add dashboard, catalog, installer, or deployment tooling unless the task explicitly asks for repository tooling.
+8. Do not add per-skill `README.md`, installation guides, quick references, changelogs, or other auxiliary docs. Put agent-needed detail in `SKILL.md` or `references/`.
+9. Keep long references in `references/`; keep `SKILL.md` focused on when to use the skill and how to run the workflow.
+10. Use placeholders in examples. Do not invent realistic UCSD people, emails, IDs, tokens, hosts, or private service names.
+11. Run the local checks documented below, or clearly say why they could not be run.
 
 ## Skill Frontmatter
 

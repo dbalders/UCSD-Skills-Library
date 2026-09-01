@@ -12,7 +12,8 @@ Instructions for AI agents working in the public TritonAI Commons repository.
 
 - Put TritonAI or UCSD AI Tools maintained skills under `tritonai/<skill-name>/` only when the PR author is on the private AI team allowlist.
 - Put all other contributed skills under `community/<skill-name>/`.
-- Every skill folder must include `SKILL.md`.
+- Every skill folder must include `SKILL.md` and a `LICENSE` identical to the
+  repository MIT license.
 - Optional skill resources belong inside that skill folder as `references/`, `assets/`, or `scripts/`.
 - Do not create a top-level `skills/` folder in this public repository.
 

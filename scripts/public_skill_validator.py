@@ -167,6 +167,12 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
     root = root.resolve()
     errors: list[str] = []
     warnings: list[str] = []
+    repository_license = root / "LICENSE"
+    expected_license = (
+        repository_license.read_bytes() if repository_license.is_file() else None
+    )
+    if expected_license is None:
+        errors.append("Repository LICENSE is required.")
     skill_files = sorted(
         path for root_name in ALLOWED_ROOTS for path in root.glob(f"{root_name}/*/SKILL.md")
     )
@@ -198,6 +204,12 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
             errors.append(f"{rel}: frontmatter name must match folder name '{folder}'.")
         if not meta.get("description"):
             errors.append(f"{rel}: frontmatter description is required.")
+        skill_license = skill.parent / "LICENSE"
+        license_rel = skill_license.relative_to(root)
+        if not skill_license.is_file():
+            errors.append(f"{license_rel}: skill folders must include the MIT license.")
+        elif expected_license is not None and skill_license.read_bytes() != expected_license:
+            errors.append(f"{license_rel}: license must be identical to the repository LICENSE.")
         if collection == "community" and not meta.get("maintainer"):
             errors.append(f"{rel}: community skills must include frontmatter maintainer:")
         extra = FORBIDDEN_FRONTMATTER & set(meta)
