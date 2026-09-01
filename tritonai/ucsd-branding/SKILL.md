@@ -1,6 +1,6 @@
 ---
 name: ucsd-branding
-description: Apply the UC San Diego Developer/Decorator 5 visual system to web pages. Use when asked to match UCSD/UC San Diego web branding, campus page chrome, current Decorator 5 documentation pages, or the components shown in the official Decorator 5 kitchen sink. This skill is intentionally limited to current developer.ucsd.edu sitemap pages plus the linked Decorator 5 kitchen-sink examples.
+description: Apply and review the UC San Diego Developer/Decorator 5 visual system for branded web pages, campus chrome, templates, modules, widgets, and official kitchen-sink components. Use for UCSD branding changes, Decorator page builds or restyling, component selection, and module implementation. Every use requires an accessibility check against current UCSD website guidance and WCAG 2.1 AA, including automated scanning plus keyboard, focus, responsive, zoom, semantic, and interactive-state review.
 ---
 
 # UCSD Developer/Decorator 5 Branding
@@ -24,7 +24,34 @@ first and keep that separate from this Decorator 5 contract.
 
 ## How to use this skill
 
-### 1. Fetch the live sources first
+### 1. Run the required accessibility gate
+
+Treat accessibility as part of the branding implementation, not a later review.
+For every page, template, component, module, widget, or style change:
+
+1. Read `references/accessibility-gate.md` before editing.
+2. Preserve the accessibility behavior supplied by Decorator, Campus CMS, and
+   supported modules. Do not override text sizing, colors, focus, semantics, or
+   responsive behavior without a tested reason.
+3. Use the `ucsd-accessibility-compliance` skill as a companion when it is
+   available. Otherwise follow the embedded gate and fetch the linked live UCSD
+   accessibility sources.
+4. Run the repository's existing build and accessibility commands. When a web
+   project has no durable accessibility command, add one and invoke it from the
+   default test command and pull-request/deployment CI.
+5. Run automated checks at mobile and desktop widths, then complete the manual
+   keyboard, visible-focus, zoom/reflow, contrast, semantic, and screen-reader
+   spot checks relevant to the changed component.
+6. Block publication on new automated violations, browser errors, horizontal
+   overflow, failed keyboard interactions, or any applicable manual check that
+   is pending or failed.
+7. Continue with an unresolved check only when an authorized repository,
+   content, or accessibility owner records an explicit waiver naming the
+   approver, scope, reason, unresolved risks, remediation owner, and follow-up.
+   An agent must not grant its own waiver or infer approval. Never describe an
+   automated pass or a waiver as full compliance.
+
+### 2. Fetch the live sources first
 
 Before writing any values from memory, fetch these. If anything in this skill
 conflicts with the live site, the live site wins.
@@ -47,7 +74,7 @@ The sitemap also lists archive pages under `/design/archive/`. Do not fold
 Decorator 3 or Decorator 4 archive elements into this Decorator 5 skill unless
 the user explicitly asks for archived guidance.
 
-### 2. Apply only the current sitemap/kitchen-sink surface
+### 3. Apply only the current sitemap/kitchen-sink surface
 
 Use these current Developer/Decorator elements:
 
@@ -75,7 +102,7 @@ Do not invent or infer guidance for:
 - non-sitemap or non-kitchen-sink page patterns
 - logos or marks not loaded by the current Decorator pages
 
-### 3. Implement the Decorator 5 page shell
+### 4. Implement the Decorator 5 page shell
 
 Load the real Decorator 5 styles and scripts unless the project has an explicit
 offline requirement.
@@ -133,7 +160,7 @@ Key facts agents commonly get wrong:
 See `references/decorator5-chrome.md` for the annotated HTML skeleton,
 current sitemap additions, and kitchen-sink component inventory.
 
-### 4. Use current sitemap additions
+### 5. Use current sitemap additions
 
 The current non-archive sitemap pages add these elements beyond the kitchen
 sink index:
@@ -159,7 +186,7 @@ sink index:
   `id` instead of named anchors, use double-quoted attributes, avoid dangling
   elements, and use lowercase tags.
 
-### 5. Use Decorator 5 kitchen-sink components
+### 6. Use Decorator 5 kitchen-sink components
 
 For component details, fetch the live example at:
 
@@ -196,6 +223,9 @@ Available component pages:
   them as UCSD Decorator 5.
 - Do not fabricate or approximate UCSD logos; use only assets loaded by the
   current Decorator pages or separately verified official logo downloads.
+- Do not publish a branding or Decorator change without running the required
+  accessibility gate. An automated axe, Siteimprove, or validator pass is
+  necessary evidence but not certification.
 
 ## Sources & currency
 
@@ -204,3 +234,5 @@ Available component pages:
 - Decorator 5 Kitchen Sink - verified June 19, 2026
 - Decorator 5 CSS (`base.min.css`) - verified June 19, 2026
 - Full annotated reference: `references/decorator5-chrome.md`
+- Accessibility gate: `references/accessibility-gate.md` - official UCSD
+  accessibility sources checked July 22, 2026
