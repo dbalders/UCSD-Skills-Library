@@ -89,7 +89,7 @@ maintainer: Contributor Name
 
 Use a real person, team, or organization name for `maintainer:`. Do not put private phone numbers, personal addresses, tokens, or credentials in frontmatter.
 
-Keep frontmatter focused on portable skill behavior. Standard agent-supported fields such as `allowed-tools` are allowed. Do not add repository-generated `catalog`, `tier`, `publicationStatus`, `category`, `status`, or dashboard/storefront metadata.
+Keep frontmatter focused on portable skill behavior. `allowed-tools` is the supported optional agent field. Do not add other arbitrary fields or repository-generated `catalog`, `tier`, `publicationStatus`, `category`, `status`, or dashboard/storefront metadata.
 
 ## Skill Content Rules
 

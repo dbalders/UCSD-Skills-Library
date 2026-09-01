@@ -110,7 +110,7 @@ description: Use when an agent should do a specific workflow. Trigger on concret
 
 The frontmatter `description` should explain when the skill should be used. Keep it concrete so agents do not load the skill for unrelated work.
 
-Keep frontmatter minimal. Community skills must include a `maintainer:` field naming the contributor, team, or organization responsible for the skill. Standard agent-supported metadata such as `allowed-tools` may be retained; generated catalog or storefront metadata is not accepted.
+Keep frontmatter minimal. Community skills must include a `maintainer:` field naming the contributor, team, or organization responsible for the skill. `allowed-tools` is the supported optional agent field; generated catalog, storefront, and other arbitrary metadata is not accepted.
 
 ## Public Boundary
 

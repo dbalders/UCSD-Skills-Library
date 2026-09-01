@@ -27,7 +27,9 @@ Instructions for AI agents working in the public TritonAI Commons repository.
 - For community skills, include a `maintainer:` frontmatter field naming the contributor, team, or organization responsible for the skill.
 - If a contributor outside the private AI team allowlist changes `tritonai/`, tell them to move the skill to `community/<skill-name>/` and add `maintainer:`.
 - Keep long policy excerpts, examples, and reference material in `references/` instead of overloading `SKILL.md`.
-- Do not add arbitrary frontmatter fields. For this public repo, `maintainer:` is the only extra field, and only for community skills.
+- Do not add arbitrary frontmatter fields. In addition to `name:` and `description:`,
+  this public repo accepts `allowed-tools:` for portable agent behavior and
+  `maintainer:` for community ownership.
 - Do not add `agents/openai.yaml` unless this repository later adds tooling that consumes it.
 - Do not add per-skill `README.md`, installation guides, quick references, changelogs, or other auxiliary docs.
 
