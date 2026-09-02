@@ -2,7 +2,7 @@
 
 This folder is for skills maintained by the TritonAI or UCSD AI Tools team.
 
-Skills here should be safe to publish in the public UCSD Skills Library.
+Skills here should be safe to publish in TritonAI Commons.
 
 Each skill should live in its own folder:
 

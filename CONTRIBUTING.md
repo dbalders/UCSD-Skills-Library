@@ -1,6 +1,12 @@
-# Contributing to UCSD Skills Library
+# Contributing to TritonAI Commons
 
-Thanks for helping improve the UCSD Skills Library. This repository is intentionally simple: it contains reusable agent skills, not a generated catalog, dashboard, installer, or internal deployment tooling.
+Thanks for helping improve TritonAI Commons. This repository is intentionally simple: it contains reusable agent skills, not a generated catalog, dashboard, installer, or internal deployment tooling.
+
+The easiest contribution path is to create and use a skill locally in Harness, then select **Settings → Skills → Your Skills → Share with UCSD**. Harness submits that existing skill folder and hides the GitHub fork and branch mechanics, but the resulting pull request follows every rule in this document and is never merged automatically.
+
+Harness adds the repository MIT license to the submitted public copy when it is missing locally. It refuses a conflicting local license rather than changing the contributor's licensing choice silently.
+
+You can also ask Harness chat to submit a named local skill to UCSD and approve the public write. Both entry points use your connected GitHub account; Harness sends disconnected contributors through the GitHub plugin sign-in or account-creation flow before retrying.
 
 ## Repository Shape
 
@@ -83,7 +89,7 @@ maintainer: Contributor Name
 
 Use a real person, team, or organization name for `maintainer:`. Do not put private phone numbers, personal addresses, tokens, or credentials in frontmatter.
 
-Do not add arbitrary frontmatter fields. For this public repo, `maintainer:` is the only extra frontmatter field allowed, and only for community skills. Do not add `allowed-tools`, `catalog`, `tier`, `publicationStatus`, `agents/openai.yaml`, or generated-dashboard metadata unless this repository later adds tooling that requires it.
+Keep frontmatter focused on portable skill behavior. `allowed-tools` is the supported optional agent field. Do not add other arbitrary fields or repository-generated `catalog`, `tier`, `publicationStatus`, `category`, `status`, or dashboard/storefront metadata.
 
 ## Skill Content Rules
 
@@ -107,6 +113,8 @@ All contributions should be reviewed before merge. Review should check:
 - Any policy, compliance, or technical claims cite authoritative sources.
 - Scripts are minimal, readable, and do not hide network calls or shell behavior.
 - The skill does not ask agents to bypass approvals, leak secrets, or mutate external systems without explicit user confirmation.
+
+Harness submissions always enter `community/`. Moving a skill into `tritonai/` is a later maintainer decision governed by the private allowlist and review policy.
 
 Skills that include scripts, external network calls, authentication flows, or security/compliance guidance need extra review.
 

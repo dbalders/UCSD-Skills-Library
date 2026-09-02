@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate public UCSD skill layout, contributor placement, and leak safety."""
+"""Validate TritonAI Commons skill layout, contributor placement, and leak safety."""
 
 from __future__ import annotations
 
@@ -12,7 +12,9 @@ from typing import Iterable
 
 
 ALLOWED_ROOTS = {"tritonai", "community"}
+ALLOWED_FRONTMATTER = {"name", "description", "maintainer", "allowed-tools"}
 FORBIDDEN_FRONTMATTER = {"catalog", "tier", "publicationStatus", "category", "status"}
+MAX_SKILL_BYTES = 65_536
 SKIP_SUFFIXES = {
     ".png",
     ".jpg",
@@ -194,6 +196,9 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
         rel = skill.relative_to(root)
         collection = rel.parts[0]
         folder = skill.parent.name
+        if skill.stat().st_size > MAX_SKILL_BYTES:
+            errors.append(f"{rel}: SKILL.md exceeds the 64 KiB Commons limit.")
+            continue
         meta = parse_frontmatter(skill, root, errors)
         if not name_re.fullmatch(folder):
             errors.append(f"{rel}: skill folder must be lowercase hyphenated: {folder}")
@@ -217,7 +222,9 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
         if "allowed-tools" in meta:
             tools = [tool.strip() for tool in meta["allowed-tools"].split(",") if tool.strip()]
             if len(tools) > 6:
-                warnings.append(f"{rel}: allowed-tools has {len(tools)} entries; confirm each one is needed.")
+                warnings.append(
+                    f"{rel}: allowed-tools has {len(tools)} entries; confirm each one is needed."
+                )
 
     return ValidationResult(
         "Public skill format",
@@ -239,10 +246,26 @@ def parse_frontmatter(path: Path, root: Path, errors: list[str]) -> dict[str, st
         return {}
     data: dict[str, str] = {}
     for raw in parts[1].splitlines():
-        if not raw or raw[:1].isspace() or ":" not in raw:
+        if not raw.strip():
+            continue
+        if raw[:1].isspace() or ":" not in raw:
+            errors.append(f"{rel}: frontmatter must use one non-indented key and value per line.")
             continue
         key, value = raw.split(":", 1)
-        data[key.strip()] = value.strip()
+        normalized_key = key.strip()
+        if not normalized_key:
+            errors.append(f"{rel}: frontmatter field names must not be empty.")
+            continue
+        if (
+            normalized_key not in ALLOWED_FRONTMATTER
+            and normalized_key not in FORBIDDEN_FRONTMATTER
+        ):
+            errors.append(f"{rel}: unsupported frontmatter field: {normalized_key}")
+            continue
+        if normalized_key in data:
+            errors.append(f"{rel}: duplicate frontmatter field: {normalized_key}")
+            continue
+        data[normalized_key] = value.strip()
     return data
 
 

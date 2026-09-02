@@ -1,12 +1,12 @@
-# UCSD Skills Library
+# TritonAI Commons
 
-Public, reusable agent skills for UC San Diego and TritonAI workflows.
+TritonAI Commons is the public library of reusable agent skills for UC San Diego, TritonAI, and community workflows. The repository URL remains `https://github.com/dbalders/UCSD-Skills-Library` for compatibility with existing Harness installs and links.
 
 Created and maintained by David Balderston for UC San Diego.
 
 An agent skill is a folder of instructions, references, scripts, and assets that an AI coding agent can load when a task matches the skill's trigger description.
 
-This repository is intentionally lightweight. It is a skills library, not a dashboard, installer, generated catalog, or internal platform runbook.
+This repository is intentionally lightweight. Harness provides the publishing experience; this repository remains the reviewable source of truth rather than becoming a dashboard, installer, generated catalog, or internal platform runbook.
 
 ## Layout
 
@@ -87,6 +87,16 @@ After copying, the installed skill should look like this:
   scripts/
 ```
 
+## Publishing from TritonAI Harness
+
+Create, install, and use a skill locally in Harness first. When it is ready to share, find it under **Settings → Skills → Your Skills** and select **Share with UCSD**.
+
+Harness reads that existing local skill folder, validates its public copy, and submits it under `community/<skill-name>/`. Supporting text files are included. If the skill has no maintainer or matching license, the submitted copy names the signed-in GitHub user and includes the repository MIT license without changing local files. A conflicting local license must be resolved before submission.
+
+Harness uses the connected GitHub integration to handle a fork, contribution branch, commits, and ready-for-review pull request. It never merges automatically, never overwrites an existing Commons skill, and does not expose or ask for a raw GitHub token. Campus approval is a later maintainer decision, not a contributor-selected submission scope.
+
+The same submission is callable from Harness chat: ask to submit a named local skill to UCSD, then approve the public write. If GitHub is not connected, Harness explains the fork and public pull-request flow and directs you through **Settings → Plugins → GitHub** to sign in or create an account before retrying.
+
 ## Skill Format
 
 Every `SKILL.md` starts with YAML frontmatter:
@@ -100,7 +110,7 @@ description: Use when an agent should do a specific workflow. Trigger on concret
 
 The frontmatter `description` should explain when the skill should be used. Keep it concrete so agents do not load the skill for unrelated work.
 
-Keep frontmatter minimal. Public TritonAI skills should use only `name:` and `description:`. Community skills must also include a `maintainer:` field naming the contributor, team, or organization responsible for the skill.
+Keep frontmatter minimal. Community skills must include a `maintainer:` field naming the contributor, team, or organization responsible for the skill. `allowed-tools` is the supported optional agent field; generated catalog, storefront, and other arbitrary metadata is not accepted.
 
 ## Public Boundary
 
@@ -133,7 +143,7 @@ Pull requests are reviewed through three complementary layers:
 
 ## Contributing
 
-Contributions are welcome through pull requests. See `CONTRIBUTING.md` for the expected skill layout, review rules, and public/private boundary.
+Contributions are welcome through Harness sharing or ordinary pull requests. See `CONTRIBUTING.md` for the expected skill layout, review rules, and public/private boundary.
 
 ## License
 

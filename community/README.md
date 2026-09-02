@@ -2,7 +2,7 @@
 
 This folder is for skills contributed by the community.
 
-Community skills should be safe to publish in the public UCSD Skills Library and reviewed before merge.
+Community skills should be safe to publish in TritonAI Commons and reviewed before merge.
 
 Each skill should live in its own folder:
 

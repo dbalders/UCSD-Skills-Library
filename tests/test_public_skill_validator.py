@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +90,20 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertTrue(result.ok, result.output())
         self.assertIn("Skills found: 1", result.output())
 
+    def test_standard_optional_frontmatter_is_allowed(self) -> None:
+        self.write_skill(extra="allowed-tools: Read, Bash")
+
+        result = validator.validate_public_skill_format(self.root)
+
+        self.assertTrue(result.ok, result.output())
+
+    def test_whitespace_only_frontmatter_lines_are_allowed(self) -> None:
+        self.write_skill(extra="   \nallowed-tools: Read")
+
+        result = validator.validate_public_skill_format(self.root)
+
+        self.assertTrue(result.ok, result.output())
+
     def test_community_skill_requires_maintainer(self) -> None:
         self.write_skill(maintainer=None)
 
@@ -119,6 +134,39 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertIn("frontmatter name must match", result.output())
         self.assertIn("catalog", result.output())
+
+    def test_standard_metadata_is_allowed_but_duplicate_frontmatter_is_blocked(self) -> None:
+        self.write_skill(extra="allowed-tools: Bash\nname: duplicate-name")
+
+        result = validator.validate_public_skill_format(self.root)
+
+        self.assertFalse(result.ok)
+        self.assertNotIn("unsupported frontmatter field", result.output())
+        self.assertIn("duplicate frontmatter field", result.output())
+
+    def test_empty_and_unsupported_frontmatter_fields_are_blocked(self) -> None:
+        self.write_skill(extra=": value\ncustom-field: value")
+
+        result = validator.validate_public_skill_format(self.root)
+
+        self.assertFalse(result.ok)
+        self.assertIn("field names must not be empty", result.output())
+        self.assertIn("unsupported frontmatter field: custom-field", result.output())
+
+    def test_oversized_skill_is_blocked(self) -> None:
+        skill = self.write_skill()
+        with skill.open("a", encoding="utf-8") as handle:
+            handle.write("x" * validator.MAX_SKILL_BYTES)
+
+        with patch.object(
+            Path,
+            "read_text",
+            side_effect=AssertionError("oversized SKILL.md must not be read"),
+        ):
+            result = validator.validate_public_skill_format(self.root)
+
+        self.assertFalse(result.ok)
+        self.assertIn("64 KiB Commons limit", result.output())
 
     def test_root_level_skill_is_blocked(self) -> None:
         self.write_skill()
