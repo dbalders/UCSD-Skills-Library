@@ -24,7 +24,24 @@ GitHub pull_request / issues webhook
 ```
 
 The webhook handler verifies GitHub's `X-Hub-Signature-256`, returns `202 Accepted`
-quickly, and performs the Codex review in a background worker.
+after persisting the event in SQLite, and performs the review in a background worker.
+Events arriving during an active review retain a pending latest revision. Interrupted
+work is recovered on startup, and failures retry with backoff before being marked
+failed. `/healthz` includes pending work, retries, failures and last success.
+
+Reviews pin the API-reported head and base commits and check that the PR is still
+open at those revisions before publication. Owned comment markers prevent duplicate
+publication after a retry. Provider failures are retried without posting a false code
+verdict. Reviews larger than this policy reviewer's input budget require manual
+inspection; they do not receive a partial clean verdict.
+
+The deterministic validator refuses symbolic links and special files before reading
+PR-controlled inputs. When a trusted Responses endpoint is available, set
+`PR_REVIEW_API_URL` (or `--review-api-url`) to use structured, tool-free model calls.
+That mode sends only the prepared evidence and does not start a model process with
+access to the host filesystem. The endpoint must use HTTPS or loopback HTTP and
+must provide its own authentication boundary. Without this setting, the existing
+stdio app-server transport remains available.
 
 ## What It Reviews
 
@@ -130,7 +147,7 @@ Defaults:
 ```sh
 CODEX_PATH=/Applications/Codex.app/Contents/Resources/codex
 CODEX_REMOTE=stdio://
-CODEX_MODEL=gpt-5.5
+CODEX_MODEL=gpt-5.6-sol
 CODEX_REASONING_EFFORT=high
 CODEX_TIMEOUT_SECONDS=3600
 ```
