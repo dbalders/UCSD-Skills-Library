@@ -16,6 +16,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.root = Path(self.tempdir.name)
+        (self.root / "LICENSE").write_text("MIT License\n", encoding="utf-8")
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
@@ -29,6 +30,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
         description: str = "Use when testing a public example skill.",
         maintainer: str | None = "Example Team",
         extra: str = "",
+        include_license: bool = True,
     ) -> Path:
         skill = self.root / collection / folder / "SKILL.md"
         skill.parent.mkdir(parents=True, exist_ok=True)
@@ -38,6 +40,8 @@ class PublicSkillValidatorTests(unittest.TestCase):
         if extra:
             fields.append(extra)
         skill.write_text("---\n" + "\n".join(fields) + "\n---\n\n# Example\n", encoding="utf-8")
+        if include_license:
+            (skill.parent / "LICENSE").write_bytes((self.root / "LICENSE").read_bytes())
         return skill
 
     def test_tritonai_change_without_allowlist_is_advisory(self) -> None:
@@ -92,6 +96,37 @@ class PublicSkillValidatorTests(unittest.TestCase):
 
         self.assertFalse(result.ok)
         self.assertIn("must include frontmatter maintainer", result.output())
+
+    def test_skill_requires_matching_repository_license(self) -> None:
+        skill = self.write_skill(include_license=False)
+
+        missing = validator.validate_public_skill_format(self.root)
+
+        self.assertFalse(missing.ok)
+        self.assertIn("skill folders must include the MIT license", missing.output())
+
+        (skill.parent / "LICENSE").write_text("Different license\n", encoding="utf-8")
+        mismatched = validator.validate_public_skill_format(self.root)
+
+        self.assertFalse(mismatched.ok)
+        self.assertIn("identical to the repository LICENSE", mismatched.output())
+
+    def test_license_symlinks_are_rejected_without_reading_targets(self) -> None:
+        skill = self.write_skill()
+        outside = self.root.parent / (self.root.name + "-outside-license")
+        outside.write_text("MIT License\n", encoding="utf-8")
+        try:
+            license_path = skill.parent / "LICENSE"
+            license_path.unlink()
+            license_path.symlink_to(outside)
+            self.assertFalse(validator.validate_public_skill_format(self.root).ok)
+            license_path.unlink()
+            license_path.write_text("MIT License\n", encoding="utf-8")
+            (self.root / "LICENSE").unlink()
+            (self.root / "LICENSE").symlink_to(outside)
+            self.assertFalse(validator.validate_public_skill_format(self.root).ok)
+        finally:
+            outside.unlink()
 
     def test_name_mismatch_and_storefront_metadata_are_blocked(self) -> None:
         self.write_skill(name="different-name", extra="catalog: public")
