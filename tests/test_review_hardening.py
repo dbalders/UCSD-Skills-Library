@@ -83,6 +83,26 @@ for line in sys.stdin:
             with self.assertRaisesRegex(RuntimeError, 'changed'):
                 service.process_job(context, service.ReviewJob('owner', 'repo', 1, 'a' * 40, 'opened', 'fixture'))
 
+    def test_installation_identity_and_forced_publication(self):
+        client = service.GitHubClient('fixture-installation-token', login='review-app[bot]')
+        marker = '<!-- public-review:abcdef -->'
+        existing = {'id': 7, 'user': {'login': 'review-app[bot]'}, 'body': marker + ' old result'}
+        calls = []
+        def request(method, path, payload=None):
+            calls.append((method, path, payload))
+            self.assertNotEqual(path, '/user')
+            return {'id': 8}
+        with patch.object(client, 'request', side_effect=request), patch.object(client, 'list_issue_comments', return_value=[existing]):
+            self.assertEqual(client.create_review_comment('owner', 'repo', 1, marker + ' new result'), 7)
+            self.assertEqual(calls, [])
+            self.assertEqual(client.create_review_comment('owner', 'repo', 1, marker + ' new result', force=True), 7)
+            self.assertEqual(calls, [('PATCH', '/repos/owner/repo/issues/comments/7', {'body': marker + ' new result'})])
+        calls.clear()
+        existing['user']['login'] = 'someone-else'
+        with patch.object(client, 'request', side_effect=request), patch.object(client, 'list_issue_comments', return_value=[existing]):
+            self.assertEqual(client.create_review_comment('owner', 'repo', 1, marker + ' new result', force=True), 8)
+            self.assertEqual(calls[0][0], 'POST')
+
     def test_api_mode_has_no_model_tools(self):
         output = {'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps({'review_body': 'Fixture result'})}]}]}
         import io

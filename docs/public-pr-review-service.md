@@ -31,7 +31,8 @@ failed. `/healthz` includes pending work, retries, failures and last success.
 
 Reviews pin the API-reported head and base commits and check that the PR is still
 open at those revisions before publication. Owned comment markers prevent duplicate
-publication after a retry. Provider failures are retried without posting a false code
+publication after a retry. An explicit `--force` updates the owned comment with
+the fresh result, including when the commits have not changed. Provider failures are retried without posting a false code
 verdict. Reviews larger than this policy reviewer's input budget require manual
 inspection; they do not receive a partial clean verdict.
 
@@ -86,6 +87,11 @@ export PR_REVIEW_WEBHOOK_SECRET="$(openssl rand -hex 32)"
 ```
 
 `GITHUB_TOKEN` or `GH_TOKEN` also work when `PR_REVIEW_GITHUB_TOKEN` is not set.
+For a GitHub App installation token, also set `PR_REVIEW_LOGIN` to the app's exact
+bot login (for example, `your-review-app[bot]`). Installation tokens cannot use
+the user identity endpoint; the configured identity is used to recognize owned
+comments. Keep the short-lived installation token refreshed through your host's
+credential management.
 
 Run the webhook receiver:
 

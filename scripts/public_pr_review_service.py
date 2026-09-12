@@ -91,9 +91,10 @@ class GitHubError(RuntimeError):
 
 
 class GitHubClient:
-    def __init__(self, token: str | None, api_url: str = "https://api.github.com") -> None:
+    def __init__(self, token: str | None, api_url: str = "https://api.github.com", login: str | None = None) -> None:
         self.token = token
         self.api_url = api_url.rstrip("/")
+        self.login = login or os.environ.get("PR_REVIEW_LOGIN")
 
     def request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
         body = None
@@ -139,12 +140,16 @@ class GitHubClient:
                 return comments
             page += 1
 
-    def create_review_comment(self, owner: str, repo: str, number: int, body: str) -> int:
+    def create_review_comment(self, owner: str, repo: str, number: int, body: str, *, force: bool = False) -> int:
         marker = re.match(r"<!-- public-review:[0-9a-f]+ -->", body)
         if marker:
-            login = self.request("GET", "/user")["login"]
+            if not self.login:
+                self.login = self.request("GET", "/user")["login"]
+            login = self.login
             for comment in self.list_issue_comments(owner, repo, number):
                 if (comment.get("user") or {}).get("login", "").lower() == login.lower() and marker[0] in comment.get("body", ""):
+                    if force and body != comment.get("body"):
+                        self.request("PATCH", f"/repos/{owner}/{repo}/issues/comments/{comment['id']}", {"body": body})
                     return int(comment["id"])
         created = self.request("POST", f"/repos/{owner}/{repo}/issues/{number}/comments", {"body": body})
         return int(created["id"])
@@ -418,7 +423,7 @@ def process_job(context: ReviewContext, job: ReviewJob) -> None:
     else:
         identity = hashlib.sha256(f"{head_sha}:{pull['base']['sha']}".encode()).hexdigest()
         body = f"<!-- public-review:{identity} -->\n" + body
-        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body)
+        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body, force=context.args.force)
         LOG.info("Posted review comment %s for PR #%s", comment_id, number)
 
     with context.state_lock:
@@ -465,7 +470,7 @@ def process_issue_job(context: ReviewContext, job: ReviewJob) -> None:
     else:
         identity = hashlib.sha256(json.dumps([issue.get('title'), issue.get('body')], sort_keys=True).encode()).hexdigest()
         body = f"<!-- public-review:{identity} -->\n" + body
-        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body)
+        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body, force=context.args.force)
         LOG.info("Posted review comment %s for issue #%s", comment_id, number)
 
     with context.state_lock:
