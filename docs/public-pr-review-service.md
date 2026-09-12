@@ -66,7 +66,7 @@ For `issues` actions `opened`, `reopened`, and `edited`, the service:
 - Reviews the issue body against public repository fit, public-boundary safety,
   missing reporter information, and likely next maintainer action.
 - Posts a new comment marked with `<!-- ucsd-public-skills-codex-issue-review -->`.
-- Records reviewed issue `updated_at` values in `.public-pr-reviewer/state.json`
+- Records reviewed issue content fingerprints in `.public-pr-reviewer/state.json`
   so the same issue update is not reviewed twice unless `--force` is used.
 
 ## Local Setup
@@ -105,22 +105,22 @@ Health check:
 curl http://127.0.0.1:8787/healthz
 ```
 
-Manual review without a webhook:
+Queue a manual review for the running service without a webhook:
 
 ```sh
 python3 scripts/public_pr_review_service.py --review-pr 12
 ```
 
-Manual issue review:
+Queue a manual issue review:
 
 ```sh
 python3 scripts/public_pr_review_service.py --review-issue 34
 ```
 
-Dry-run manual review:
+Dry-run previews need a separate state directory while the daemon is running:
 
 ```sh
-python3 scripts/public_pr_review_service.py --review-pr 12 --dry-run --force
+python3 scripts/public_pr_review_service.py --review-pr 12 --dry-run --force --state-dir .review-preview
 ```
 
 ## GitHub Webhook

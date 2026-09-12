@@ -128,8 +128,29 @@ Pull requests are reviewed through three complementary layers:
 - CodeRabbit is configured by `.coderabbit.yaml` for AI review on each PR update,
   with emphasis on public-vs-secure repository fit.
 - The local Codex webhook reviewer in `docs/public-pr-review-service.md` runs
-  through the Codex app server and posts public-skills review comments for each
+  through a configured model endpoint and posts public-skills review comments for each
   newly reviewed PR head SHA and issue update.
+
+
+The webhook reviewer persists jobs before accepting delivery, recovers interrupted
+work, and retries provider failures without posting a code verdict. It checks PR
+and issue freshness before publication. Start it with configured GitHub/webhook
+credentials:
+
+```sh
+python3 scripts/public_pr_review_service.py
+# Queue a review through the running service:
+python3 scripts/public_pr_review_service.py --review-pr 12 --force
+# Use separate state for a preview while the service is running:
+python3 scripts/public_pr_review_service.py --review-pr 12 --dry-run --state-dir .review-preview
+```
+
+Set `PR_REVIEW_API_URL` (or `--review-api-url`) to a trusted Responses endpoint to
+use tool-free model generation; the endpoint must use HTTPS or loopback HTTP and
+provide its own authentication boundary. Without it, the stdio app-server route
+is used. For GitHub App installation tokens, configure `PR_REVIEW_LOGIN` with the
+exact bot login. See [service configuration](docs/public-pr-review-service.md)
+for credential setup, health checks, queue behavior and input-size limits.
 
 ## Contributing
 

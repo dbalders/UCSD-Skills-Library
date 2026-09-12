@@ -70,6 +70,7 @@ class ReviewJob:
     action: str
     delivery_id: str
     kind: str = "pull_request"
+    force: bool = False
 
 
 @dataclass
@@ -194,6 +195,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def acquire_service_lock(state_dir):
+    handle = (state_dir / 'service.lock').open('a')
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        raise RuntimeError('The service owns this state directory. Use a separate --state-dir for a dry-run preview.')
+    return handle
+
+
 def main() -> int:
     args = parse_args()
     logging.basicConfig(
@@ -228,24 +239,22 @@ def main() -> int:
         durable=ReviewStore(state_dir / "review-jobs.sqlite3"),
     )
 
-    if args.review_pr:
+    if args.review_pr or args.review_issue:
         owner, repo = repo_filter
-        for number in args.review_pr:
-            pull = context.client.get_pull(owner, repo, number)
-            process_job(context, ReviewJob(owner, repo, number, str(pull["head"]["sha"]), "manual", "manual"))
-        return 0
-    if args.review_issue:
-        owner, repo = repo_filter
-        for number in args.review_issue:
-            issue = context.client.get_issue(owner, repo, number)
-            process_job(
-                context,
-                ReviewJob(owner, repo, number, str(issue.get("updated_at") or issue.get("node_id") or ""), "manual", "manual", "issue"),
-            )
+        # A preview owns a separate state/worktree namespace. Publishing manual
+        # requests go through the running daemon's durable queue.
+        preview_lock = acquire_service_lock(state_dir) if args.dry_run else None
+        for kind, numbers in [('pull_request', args.review_pr), ('issue', args.review_issue)]:
+            for number in numbers or []:
+                job = ReviewJob(owner, repo, number, '', 'manual', 'manual', kind, args.force)
+                if args.dry_run:
+                    process_job(context, job)
+                else:
+                    context.durable.enqueue(f"{kind}:{owner}/{repo}#{number}", asdict(job), 'manual')
+                    LOG.info("Queued manual %s review #%s for the service", kind, number)
         return 0
 
-    service_lock = (state_dir / "service.lock").open("a")
-    fcntl.flock(service_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    service_lock = acquire_service_lock(state_dir)
     context.durable.recover()
     worker = threading.Thread(target=worker_loop, args=(context,), daemon=True)
     worker.start()
@@ -387,6 +396,7 @@ def worker_loop(context: ReviewContext) -> None:
 
 
 def process_job(context: ReviewContext, job: ReviewJob) -> None:
+    force = context.args.force or job.force
     if job.kind == "issue":
         process_issue_job(context, job)
         return
@@ -405,7 +415,7 @@ def process_job(context: ReviewContext, job: ReviewJob) -> None:
     with context.state_lock:
         previous = context.state.get("pulls", {}).get(key, {})
         already_reviewed = previous.get("head_sha") == head_sha and previous.get("base_sha") == pull["base"]["sha"]
-    if already_reviewed and not context.args.force:
+    if already_reviewed and not force:
         LOG.info("Skipping PR #%s at %s; already reviewed", number, head_sha[:12])
         return
 
@@ -423,7 +433,7 @@ def process_job(context: ReviewContext, job: ReviewJob) -> None:
     else:
         identity = hashlib.sha256(f"{head_sha}:{pull['base']['sha']}".encode()).hexdigest()
         body = f"<!-- public-review:{identity} -->\n" + body
-        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body, force=context.args.force)
+        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body, force=force)
         LOG.info("Posted review comment %s for PR #%s", comment_id, number)
 
     with context.state_lock:
@@ -443,19 +453,27 @@ def process_job(context: ReviewContext, job: ReviewJob) -> None:
         save_state(context.state_path, context.state)
 
 
+def issue_review_identity(issue):
+    inputs = [issue.get('title'), issue.get('body'), issue.get('state'),
+              sorted(str(label.get('name') or '') for label in issue.get('labels') or [])]
+    return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
+
+
 def process_issue_job(context: ReviewContext, job: ReviewJob) -> None:
+    force = context.args.force or job.force
     issue = context.client.get_issue(job.owner, job.repo, job.number)
     number = int(issue["number"])
     title = str(issue.get("title") or "")
     updated_at = str(issue.get("updated_at") or issue.get("node_id") or "")
     key = f"{job.owner}/{job.repo}#{number}"
 
-    if issue.get("pull_request"):
-        LOG.info("Skipping issue #%s because it is a pull request", number)
+    if issue.get("pull_request") or issue.get("state") != "open":
+        LOG.info("Skipping ineligible issue #%s", number)
         return
+    identity = issue_review_identity(issue)
     with context.state_lock:
-        already_reviewed = context.state.get("issues", {}).get(key, {}).get("updated_at") == updated_at
-    if already_reviewed and not context.args.force:
+        already_reviewed = context.state.get("issues", {}).get(key, {}).get("fingerprint") == identity
+    if already_reviewed and not force:
         LOG.info("Skipping issue #%s at %s; already reviewed", number, updated_at)
         return
 
@@ -463,18 +481,21 @@ def process_issue_job(context: ReviewContext, job: ReviewJob) -> None:
     body, review_succeeded = review_issue(context.args, issue, job.owner, job.repo)
     if not review_succeeded:
         raise RuntimeError("Issue review unavailable; durable retry applies")
+    latest = context.client.get_issue(job.owner, job.repo, number)
+    if latest.get('state') != 'open' or latest.get('pull_request') or issue_review_identity(latest) != identity:
+        raise RuntimeError('Issue changed or closed during review; retry latest revision')
     comment_id: int | None
     if context.args.dry_run:
         print(f"\n--- Issue #{number} dry-run comment ---\n{body}\n")
         return
     else:
-        identity = hashlib.sha256(json.dumps([issue.get('title'), issue.get('body')], sort_keys=True).encode()).hexdigest()
         body = f"<!-- public-review:{identity} -->\n" + body
-        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body, force=context.args.force)
+        comment_id = context.client.create_review_comment(job.owner, job.repo, number, body, force=force)
         LOG.info("Posted review comment %s for issue #%s", comment_id, number)
 
     with context.state_lock:
         state_entry = {
+            "fingerprint": identity,
             "comment_id": comment_id,
             "reviewed_at": now_iso(),
             "title": title,

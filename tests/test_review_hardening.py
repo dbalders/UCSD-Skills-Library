@@ -103,6 +103,41 @@ for line in sys.stdin:
             self.assertEqual(client.create_review_comment('owner', 'repo', 1, marker + ' new result', force=True), 8)
             self.assertEqual(calls[0][0], 'POST')
 
+    def test_manual_request_queues_even_while_daemon_owns_state(self):
+        import os
+        from review_job_store import ReviewStore
+        with tempfile.TemporaryDirectory() as tmp:
+            lock = service.acquire_service_lock(Path(tmp))
+            try:
+                argv = ['service', '--review-pr', '12', '--force', '--repo', 'owner/repo', '--state-dir', tmp]
+                with patch.object(sys, 'argv', argv), patch.dict(os.environ, {'PR_REVIEW_GITHUB_TOKEN': 'FIXTURE_TOKEN'}, clear=True), \
+                     patch.object(service, 'process_job') as process:
+                    self.assertEqual(service.main(), 0)
+                    process.assert_not_called()
+                key, _, payload = ReviewStore(Path(tmp) / 'review-jobs.sqlite3').claim()
+                self.assertEqual(key, 'pull_request:owner/repo#12')
+                self.assertTrue(payload['force'])
+                with patch.object(sys, 'argv', argv + ['--dry-run']), patch.object(service, 'process_job') as process:
+                    with self.assertRaisesRegex(RuntimeError, 'separate --state-dir'):
+                        service.main()
+                    process.assert_not_called()
+            finally:
+                lock.close()
+
+    def test_issue_edits_labels_and_closure_prevent_stale_publication(self):
+        from threading import Lock
+        from unittest.mock import Mock
+        issue = {'number': 12, 'state': 'open', 'title': 'Fixture', 'body': 'Initial scope', 'labels': [], 'updated_at': 'first'}
+        for update in [{'body': 'Changed scope'}, {'labels': [{'name': 'new-scope'}]}, {'state': 'closed'}]:
+            with self.subTest(update=update):
+                client = NS(get_issue=Mock(side_effect=[issue, dict(issue, **update)]), create_review_comment=Mock())
+                context = NS(client=client, args=NS(force=False, dry_run=False), state={}, state_lock=Lock())
+                with patch.object(service, 'review_issue', return_value=('Fixture review', True)):
+                    with self.assertRaisesRegex(RuntimeError, 'changed or closed'):
+                        service.process_issue_job(context, service.ReviewJob('owner', 'repo', 12, '', 'edited', 'event', 'issue'))
+                client.create_review_comment.assert_not_called()
+                self.assertEqual(context.state, {})
+
     def test_api_mode_has_no_model_tools(self):
         output = {'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps({'review_body': 'Fixture result'})}]}]}
         import io
