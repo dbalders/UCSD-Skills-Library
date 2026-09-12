@@ -52,4 +52,3 @@ class StoreTests(unittest.TestCase):
         for thread in threads:
             thread.join()
         self.assertEqual(sum(c is not None for c in claims), 1)
-
