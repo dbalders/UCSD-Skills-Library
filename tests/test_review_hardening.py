@@ -138,6 +138,16 @@ for line in sys.stdin:
                 client.create_review_comment.assert_not_called()
                 self.assertEqual(context.state, {})
 
+    def test_diff_budget_reduces_context_and_refuses_remaining_oversize(self):
+        large = service.CommandResult('PR diff', [], 0, 'x' * 80001)
+        compact = service.CommandResult('PR diff', [], 0, 'complete changed lines')
+        with patch.object(service, 'run_command', side_effect=[large, compact]) as run:
+            self.assertIs(service.review_diff(Path('/unused'), 'a' * 40), compact)
+            self.assertIn('--unified=3', run.call_args[0][1])
+        with patch.object(service, 'run_command', return_value=large):
+            with self.assertRaisesRegex(RuntimeError, 'No partial verdict'):
+                service.review_diff(Path('/unused'), 'a' * 40)
+
     def test_api_mode_has_no_model_tools(self):
         output = {'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps({'review_body': 'Fixture result'})}]}]}
         import io

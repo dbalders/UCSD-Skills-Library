@@ -34,7 +34,9 @@ open at those revisions before publication. Owned comment markers prevent duplic
 publication after a retry. An explicit `--force` updates the owned comment with
 the fresh result, including when the commits have not changed. Provider failures are retried without posting a false code
 verdict. Reviews larger than this policy reviewer's input budget require manual
-inspection; they do not receive a partial clean verdict.
+inspection; they do not receive a partial clean verdict. The diff first includes
+15 surrounding lines and falls back to three if needed to fit the 80,000-character
+budget, preserving all changed lines in either case.
 
 The deterministic validator refuses symbolic links and special files before reading
 PR-controlled inputs. When a trusted Responses endpoint is available, set

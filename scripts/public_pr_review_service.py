@@ -529,8 +529,6 @@ def review_pull(
         prepare_worktree(args.remote, owner, repo, number, base_ref, worktree, token, head_sha, base_sha)
         contributor = str((pull.get("user") or {}).get("login") or "")
         checks = run_local_checks(worktree, base_sha, contributor, state_dir)
-        if any(check.label == "PR diff" and len(check.output) > 80000 for check in checks):
-            raise RuntimeError("PR diff exceeds this policy review's input budget; manual review required. No partial verdict produced.")
         failed_checks = [check for check in checks if not check.ok]
         if failed_checks:
             return local_checks_blocked_comment(pull, checks, failed_checks), True
@@ -578,6 +576,17 @@ def cleanup_worktree(worktree: Path) -> None:
         shutil.rmtree(worktree)
 
 
+def review_diff(worktree: Path, base_ref: str) -> CommandResult:
+    for context_lines in (15, 3):
+        result = run_command('PR diff', ['git', 'diff', '--no-ext-diff', '--no-textconv',
+                             f'--unified={context_lines}', f'{base_ref}...HEAD'], worktree, timeout=120)
+        if not result.ok:
+            raise RuntimeError('Could not obtain the complete PR diff')
+        if len(result.output) <= 80000:
+            return result
+    raise RuntimeError('PR diff exceeds the policy-review input budget; manual review required. No partial verdict produced.')
+
+
 def run_local_checks(
     worktree: Path,
     base_ref: str,
@@ -587,7 +596,7 @@ def run_local_checks(
     checks = [
         run_command("Changed files", ["git", "diff", "--name-status", f"{base_ref}...HEAD"], worktree, timeout=120),
         run_command("Diff stat", ["git", "diff", "--stat", f"{base_ref}...HEAD"], worktree, timeout=120),
-        run_command("PR diff", ["git", "diff", "--no-ext-diff", "--unified=15", f"{base_ref}...HEAD"], worktree, timeout=120),
+        review_diff(worktree, base_ref),
         run_command("Whitespace check", ["git", "diff", "--check", f"{base_ref}...HEAD"], worktree, timeout=120),
     ]
     changed = changed_files(worktree, base_ref)

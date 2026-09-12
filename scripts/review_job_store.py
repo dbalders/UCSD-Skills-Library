@@ -15,6 +15,7 @@ class ReviewStore:
         with self.connect() as db:
             db.executescript('''
                 PRAGMA journal_mode=WAL;
+                CREATE TABLE IF NOT EXISTS service_status (name TEXT PRIMARY KEY, value REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS jobs (
                     key TEXT PRIMARY KEY, payload TEXT NOT NULL, generation INTEGER NOT NULL,
                     completed INTEGER NOT NULL DEFAULT 0, running INTEGER,
@@ -23,6 +24,7 @@ class ReviewStore:
                 CREATE TABLE IF NOT EXISTS deliveries (id TEXT PRIMARY KEY, received REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, payload TEXT NOT NULL, created REAL NOT NULL);
             ''')
+            db.execute("INSERT INTO service_status VALUES ('last_success', (SELECT COALESCE(MAX(finished),0) FROM jobs WHERE phase='done')) ON CONFLICT(name) DO UPDATE SET value=MAX(service_status.value,excluded.value)")
         path.chmod(0o600)
 
     @contextmanager
@@ -83,6 +85,8 @@ class ReviewStore:
                 db.execute("UPDATE jobs SET running=NULL,completed=?,error=?,finished=?,phase=? WHERE key=?",
                            (generation, str(error)[:500] if error else None, time.time(), 'failed' if error else 'done', key))
                 outcome = 'failed' if error else 'done'
+            if outcome == 'done':
+                db.execute("INSERT INTO service_status VALUES ('last_success', ?) ON CONFLICT(name) DO UPDATE SET value=excluded.value", (time.time(),))
         return outcome
 
     def get(self, key):
@@ -97,6 +101,7 @@ class ReviewStore:
     def health(self):
         with self.connect() as db:
             rows = db.execute('SELECT * FROM jobs').fetchall()
+            last_success = db.execute("SELECT value FROM service_status WHERE name='last_success'").fetchone()[0]
         pending = [r for r in rows if r['generation'] > r['completed']]
         return {
             'active': sum(r['running'] is not None for r in rows),
@@ -104,5 +109,5 @@ class ReviewStore:
             'retrying': sum(r['phase'] == 'retry' for r in pending),
             'failed': sum(r['phase'] == 'failed' for r in rows),
             'oldest_pending_seconds': int(time.time() - min(r['updated'] for r in pending)) if pending else 0,
-            'last_success': max((r['finished'] or 0 for r in rows if r['phase'] == 'done'), default=0),
+            'last_success': last_success,
         }

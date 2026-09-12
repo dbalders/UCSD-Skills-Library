@@ -43,6 +43,16 @@ class StoreTests(unittest.TestCase):
         self.store.enqueue('pr:1', {'head': 'b'}, 'b')
         self.assertIsNotNone(self.store.claim())
 
+    def test_last_success_survives_new_work_and_restart(self):
+        self.store.enqueue('pr:1', {}, 'initial')
+        key, generation, _ = self.store.claim()
+        self.store.finish(key, generation)
+        last_success = self.store.health()['last_success']
+        self.assertGreater(last_success, 0)
+        self.store.enqueue(key, {}, 'next')
+        self.store.claim()
+        self.assertEqual(ReviewStore(self.store.path).health()['last_success'], last_success)
+
     def test_parallel_claims_do_not_duplicate_jobs(self):
         self.store.enqueue('pr:1', {}, 'a')
         claims = []
