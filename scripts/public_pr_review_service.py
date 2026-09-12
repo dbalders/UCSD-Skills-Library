@@ -250,7 +250,7 @@ def main() -> int:
                 if args.dry_run:
                     process_job(context, job)
                 else:
-                    context.durable.enqueue(f"{kind}:{owner}/{repo}#{number}", asdict(job), 'manual')
+                    enqueue_review_job(context, job)
                     LOG.info("Queued manual %s review #%s for the service", kind, number)
         return 0
 
@@ -332,6 +332,15 @@ def make_handler(context: ReviewContext, webhook_secret: str | None) -> type[Bas
     return Handler
 
 
+def enqueue_review_job(context, job):
+    payload = asdict(job)
+    payload['force'] = job.force or job.action == 'reopened'
+    def retain_force(previous, current):
+        return dict(current, force=bool(previous.get('force') or current.get('force')))
+    return context.durable.enqueue(f"{job.kind}:{job.owner}/{job.repo}#{job.number}", payload,
+                                   job.delivery_id, merge_pending=retain_force)
+
+
 def handle_webhook_payload(context: ReviewContext, event: str, delivery: str, payload: dict[str, Any]) -> bool:
     if event == "ping":
         LOG.info("Received GitHub webhook ping")
@@ -357,7 +366,7 @@ def handle_webhook_payload(context: ReviewContext, event: str, delivery: str, pa
     if event == "pull_request":
         pull = payload.get("pull_request") or {}
         job = ReviewJob(owner, repo, int(pull["number"]), str(pull.get("head", {}).get("sha") or ""), action, delivery)
-        accepted = context.durable.enqueue(f"{job.kind}:{owner}/{repo}#{job.number}", asdict(job), delivery)
+        accepted = enqueue_review_job(context, job)
         LOG.info("%s PR #%s from %s at %s", "Queued" if accepted else "Deduplicated", job.number, action, job.head_sha[:12])
         return accepted
 
@@ -374,7 +383,7 @@ def handle_webhook_payload(context: ReviewContext, event: str, delivery: str, pa
         delivery,
         "issue",
     )
-    accepted = context.durable.enqueue(f"{job.kind}:{owner}/{repo}#{job.number}", asdict(job), delivery)
+    accepted = enqueue_review_job(context, job)
     LOG.info("%s issue #%s from %s at %s", "Queued" if accepted else "Deduplicated", job.number, action, job.head_sha)
     return accepted
 
@@ -455,13 +464,13 @@ def process_job(context: ReviewContext, job: ReviewJob) -> None:
 
 
 def issue_review_identity(issue):
-    inputs = [issue.get('title'), issue.get('body'), issue.get('state'), issue.get('updated_at'),
+    inputs = [issue.get('title'), issue.get('body'), issue.get('state'),
               sorted(str(label.get('name') or '') for label in issue.get('labels') or [])]
     return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
 
 
 def process_issue_job(context: ReviewContext, job: ReviewJob) -> None:
-    force = context.args.force or job.force
+    force = context.args.force or job.force or job.action == "reopened"
     issue = context.client.get_issue(job.owner, job.repo, job.number)
     number = int(issue["number"])
     title = str(issue.get("title") or "")

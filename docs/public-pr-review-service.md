@@ -189,3 +189,8 @@ ignored. For deliveries recorded before generation mapping was introduced, use
 the manual review command to enqueue a fresh attempt. Database initialization is
 serialized independently from the lifetime service lock so manual queue clients
 and daemon startup can share the durable store safely.
+
+Issue publication identity uses title, body, labels and state. Unrelated comment
+or assignment activity does not invalidate a review. Reopening explicitly requests
+a fresh review and updates the owned comment even if the content is unchanged.
+Pending force/reopen intent survives coalescing with newer ordinary webhook events.

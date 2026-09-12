@@ -159,7 +159,8 @@ for line in sys.stdin:
         with patch.object(service, 'review_issue', return_value=('Fresh review', True)) as review, patch.object(service, 'save_state'):
             service.process_issue_job(context, service.ReviewJob('owner', 'repo', 12, '', 'reopened', 'event', 'issue'))
             review.assert_called_once()
-        self.assertIn(service.issue_review_identity(reopened), client.create_review_comment.call_args[0][3])
+        self.assertEqual(service.issue_review_identity(original), service.issue_review_identity(reopened))
+        self.assertTrue(client.create_review_comment.call_args.kwargs['force'])
 
     def test_duplicate_webhook_reports_not_accepted(self):
         from review_job_store import ReviewStore
@@ -168,6 +169,44 @@ for line in sys.stdin:
             payload = {'action': 'opened', 'repository': {'full_name': 'owner/repo'}, 'pull_request': {'number': 1, 'head': {'sha': 'a' * 40}}}
             self.assertTrue(service.handle_webhook_payload(context, 'pull_request', 'same-delivery', payload))
             self.assertFalse(service.handle_webhook_payload(context, 'pull_request', 'same-delivery', payload))
+
+    def test_coalescing_preserves_force_and_reopen_until_completion(self):
+        from review_job_store import ReviewStore
+        with tempfile.TemporaryDirectory() as tmp:
+            context = NS(durable=ReviewStore(Path(tmp) / 'jobs.sqlite3'))
+            service.enqueue_review_job(context, service.ReviewJob('owner', 'repo', 1, '', 'manual', 'manual', force=True))
+            service.enqueue_review_job(context, service.ReviewJob('owner', 'repo', 1, '', 'edited', 'later-event'))
+            key, generation, payload = context.durable.claim()
+            self.assertTrue(payload['force'])
+            context.durable.finish(key, generation)
+            service.enqueue_review_job(context, service.ReviewJob('owner', 'repo', 1, '', 'edited', 'after-completion'))
+            self.assertFalse(context.durable.claim()[2]['force'])
+            service.enqueue_review_job(context, service.ReviewJob('owner', 'repo', 2, '', 'reopened', 'reopen', 'issue'))
+            service.enqueue_review_job(context, service.ReviewJob('owner', 'repo', 2, '', 'edited', 'edited', 'issue'))
+            self.assertTrue(context.durable.claim()[2]['force'])
+
+    def test_comment_activity_and_lost_response_do_not_duplicate_issue_review(self):
+        from threading import Lock
+        issue = {'number': 12, 'state': 'open', 'title': 'Fixture', 'body': 'Same scope', 'labels': [], 'updated_at': 'initial'}
+        comments = []
+        client = service.GitHubClient('FIXTURE_TOKEN', login='owner')
+        def request(method, path, payload=None):
+            if method == 'GET' and '/comments?' in path:
+                return list(comments)
+            if method == 'GET':
+                return dict(issue)
+            self.assertEqual(method, 'POST')
+            comments.append({'id': 8, 'body': payload['body'], 'user': {'login': 'owner'}})
+            issue['updated_at'] = 'reviewer-comment-activity'
+            raise OSError('Synthetic lost response after successful publication')
+        context = NS(client=client, args=NS(force=False, dry_run=False), state={}, state_lock=Lock(), state_path=Path('/unused'))
+        job = service.ReviewJob('owner', 'repo', 12, '', 'edited', 'event', 'issue')
+        with patch.object(client, 'request', side_effect=request), patch.object(service, 'review_issue', return_value=('Fixture review', True)), patch.object(service, 'save_state'):
+            with self.assertRaises(OSError):
+                service.process_issue_job(context, job)
+            service.process_issue_job(context, job)
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(context.state['issues']['owner/repo#12']['comment_id'], 8)
 
     def test_api_mode_has_no_model_tools(self):
         output = {'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps({'review_body': 'Fixture result'})}]}]}

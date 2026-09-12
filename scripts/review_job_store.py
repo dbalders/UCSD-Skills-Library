@@ -53,19 +53,22 @@ class ReviewStore:
             db.execute('DELETE FROM deliveries WHERE received < ?', (time.time() - 30 * 86400,))
             db.execute('DELETE FROM delivery_jobs WHERE id NOT IN (SELECT id FROM deliveries)')
 
-    def enqueue(self, key, payload, delivery):
+    def enqueue(self, key, payload, delivery, merge_pending=None):
         now = time.time()
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
+            previous = db.execute('SELECT * FROM jobs WHERE key=?', (key,)).fetchone()
             if delivery and delivery != 'manual':
                 seen = db.execute('SELECT d.id, j.job_key, j.generation FROM deliveries d LEFT JOIN delivery_jobs j ON d.id=j.id WHERE d.id=?', (delivery,)).fetchone()
                 if seen:
-                    job = db.execute('SELECT * FROM jobs WHERE key=?', (key,)).fetchone()
+                    job = previous
                     replayable = (job and seen['job_key'] == key and seen['generation'] == job['generation']
                                   and job['phase'] == 'failed' and job['running'] is None
                                   and job['generation'] == job['completed'])
                     if not replayable:
                         return False
+            if previous and previous['generation'] > previous['completed'] and merge_pending:
+                payload = merge_pending(json.loads(previous['payload']), payload)
             db.execute('''INSERT INTO jobs(key,payload,generation,updated,phase) VALUES(?,?,1,?,'pending')
                 ON CONFLICT(key) DO UPDATE SET payload=excluded.payload,generation=jobs.generation+1,
                 attempts=0,ready=0,updated=excluded.updated,error=NULL,
