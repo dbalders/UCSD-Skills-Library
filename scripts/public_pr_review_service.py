@@ -275,7 +275,8 @@ def make_handler(context: ReviewContext, webhook_secret: str | None) -> type[Bas
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             if self.path == "/healthz":
-                self.respond(HTTPStatus.OK, {"ok": not context.durable.health()["failed"], "jobs": context.durable.health()})
+                health = context.durable.health()
+                self.respond(HTTPStatus.OK, {"ok": not health["failed"], "jobs": health})
                 return
             self.respond(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
@@ -356,9 +357,9 @@ def handle_webhook_payload(context: ReviewContext, event: str, delivery: str, pa
     if event == "pull_request":
         pull = payload.get("pull_request") or {}
         job = ReviewJob(owner, repo, int(pull["number"]), str(pull.get("head", {}).get("sha") or ""), action, delivery)
-        context.durable.enqueue(f"{job.kind}:{owner}/{repo}#{job.number}", asdict(job), delivery)
-        LOG.info("Queued PR #%s from %s at %s", job.number, action, job.head_sha[:12])
-        return True
+        accepted = context.durable.enqueue(f"{job.kind}:{owner}/{repo}#{job.number}", asdict(job), delivery)
+        LOG.info("%s PR #%s from %s at %s", "Queued" if accepted else "Deduplicated", job.number, action, job.head_sha[:12])
+        return accepted
 
     issue = payload.get("issue") or {}
     if issue.get("pull_request"):
@@ -373,9 +374,9 @@ def handle_webhook_payload(context: ReviewContext, event: str, delivery: str, pa
         delivery,
         "issue",
     )
-    context.durable.enqueue(f"{job.kind}:{owner}/{repo}#{job.number}", asdict(job), delivery)
-    LOG.info("Queued issue #%s from %s at %s", job.number, action, job.head_sha)
-    return True
+    accepted = context.durable.enqueue(f"{job.kind}:{owner}/{repo}#{job.number}", asdict(job), delivery)
+    LOG.info("%s issue #%s from %s at %s", "Queued" if accepted else "Deduplicated", job.number, action, job.head_sha)
+    return accepted
 
 
 def worker_loop(context: ReviewContext) -> None:
@@ -454,7 +455,7 @@ def process_job(context: ReviewContext, job: ReviewJob) -> None:
 
 
 def issue_review_identity(issue):
-    inputs = [issue.get('title'), issue.get('body'), issue.get('state'),
+    inputs = [issue.get('title'), issue.get('body'), issue.get('state'), issue.get('updated_at'),
               sorted(str(label.get('name') or '') for label in issue.get('labels') or [])]
     return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
 

@@ -53,6 +53,54 @@ class StoreTests(unittest.TestCase):
         self.store.claim()
         self.assertEqual(ReviewStore(self.store.path).health()['last_success'], last_success)
 
+    def test_terminal_redelivery_requeues_only_its_matching_generation(self):
+        self.store.enqueue('pr:1', {'head': 'old'}, 'old-delivery')
+        self.store.enqueue('pr:1', {'head': 'current'}, 'current-delivery')
+        key, generation, _ = self.store.claim()
+        with self.store.connect() as db:
+            db.execute('UPDATE jobs SET attempts=4')
+        self.store.finish(key, generation, 'Synthetic terminal failure')
+        self.assertEqual(self.store.health()['failed'], 1)
+        self.assertFalse(self.store.enqueue(key, {'head': 'old'}, 'old-delivery'))
+        self.assertTrue(self.store.enqueue(key, {'head': 'current'}, 'current-delivery'))
+        self.assertEqual(self.store.health()['failed'], 0)
+        self.assertFalse(self.store.enqueue(key, {'head': 'current'}, 'current-delivery'))
+        key, generation, payload = self.store.claim()
+        self.assertEqual(payload['head'], 'current')
+        self.assertFalse(self.store.enqueue(key, payload, 'current-delivery'))
+        self.store.finish(key, generation)
+        self.assertFalse(self.store.enqueue(key, payload, 'current-delivery'))
+
+    def test_concurrent_first_start_creates_complete_schema(self):
+        path = Path(self.tmp.name) / 'concurrent.sqlite3'
+        barrier = threading.Barrier(8)
+        errors = []
+        def initialize(i):
+            try:
+                barrier.wait()
+                ReviewStore(path).enqueue(f'pr:{i}', {}, f'delivery-{i}')
+            except Exception as error:
+                errors.append(error)
+        threads = [threading.Thread(target=initialize, args=(i,)) for i in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(10)
+        self.assertFalse(any(thread.is_alive() for thread in threads))
+        self.assertEqual(errors, [])
+        self.assertEqual(ReviewStore(path).health()['pending'], 8)
+
+    def test_existing_delivery_schema_upgrades_without_losing_deduplication(self):
+        import sqlite3
+        path = Path(self.tmp.name) / 'legacy.sqlite3'
+        with sqlite3.connect(path) as db:
+            db.execute('CREATE TABLE deliveries (id TEXT PRIMARY KEY, received REAL NOT NULL)')
+            db.execute('INSERT INTO deliveries VALUES (?, ?)', ('legacy-event', 1))
+        store = ReviewStore(path)
+        self.assertFalse(store.enqueue('pr:1', {}, 'legacy-event'))
+        self.assertTrue(store.enqueue('pr:1', {}, 'new-event'))
+        self.assertEqual(store.claim()[2], {})
+
     def test_parallel_claims_do_not_duplicate_jobs(self):
         self.store.enqueue('pr:1', {}, 'a')
         claims = []

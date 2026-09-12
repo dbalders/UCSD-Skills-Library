@@ -182,3 +182,10 @@ reviewer. The tested automation path is `codex app-server --stdio`.
 - Local state and worktrees live under `.public-pr-reviewer/`, which is ignored by git.
 - Token/secret-like environment variables are scrubbed before running Codex.
 - The reviewer does not execute changed repository scripts.
+
+A GitHub redelivery can restart the matching latest generation after terminal
+failure. Duplicate active, retrying, completed or superseded deliveries remain
+ignored. For deliveries recorded before generation mapping was introduced, use
+the manual review command to enqueue a fresh attempt. Database initialization is
+serialized independently from the lifetime service lock so manual queue clients
+and daemon startup can share the durable store safely.

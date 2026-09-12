@@ -148,6 +148,27 @@ for line in sys.stdin:
             with self.assertRaisesRegex(RuntimeError, 'No partial verdict'):
                 service.review_diff(Path('/unused'), 'a' * 40)
 
+    def test_reopened_issue_gets_a_new_revision_and_review(self):
+        from threading import Lock
+        from unittest.mock import Mock
+        original = {'number': 12, 'state': 'open', 'title': 'Fixture', 'body': 'Same scope', 'labels': [], 'updated_at': 'before-close'}
+        reopened = dict(original, updated_at='after-reopen')
+        client = NS(get_issue=Mock(return_value=reopened), create_review_comment=Mock(return_value=8))
+        context = NS(client=client, args=NS(force=False, dry_run=False), state_lock=Lock(), state_path=Path('/unused'),
+                     state={'issues': {'owner/repo#12': {'fingerprint': service.issue_review_identity(original)}}})
+        with patch.object(service, 'review_issue', return_value=('Fresh review', True)) as review, patch.object(service, 'save_state'):
+            service.process_issue_job(context, service.ReviewJob('owner', 'repo', 12, '', 'reopened', 'event', 'issue'))
+            review.assert_called_once()
+        self.assertIn(service.issue_review_identity(reopened), client.create_review_comment.call_args[0][3])
+
+    def test_duplicate_webhook_reports_not_accepted(self):
+        from review_job_store import ReviewStore
+        with tempfile.TemporaryDirectory() as tmp:
+            context = NS(repo_filter=('owner', 'repo'), durable=ReviewStore(Path(tmp) / 'jobs.sqlite3'))
+            payload = {'action': 'opened', 'repository': {'full_name': 'owner/repo'}, 'pull_request': {'number': 1, 'head': {'sha': 'a' * 40}}}
+            self.assertTrue(service.handle_webhook_payload(context, 'pull_request', 'same-delivery', payload))
+            self.assertFalse(service.handle_webhook_payload(context, 'pull_request', 'same-delivery', payload))
+
     def test_api_mode_has_no_model_tools(self):
         output = {'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps({'review_body': 'Fixture result'})}]}]}
         import io
