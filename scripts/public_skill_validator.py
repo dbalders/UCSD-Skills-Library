@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import stat
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -168,7 +169,7 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
     warnings: list[str] = []
     repository_license = root / "LICENSE"
     expected_license = (
-        repository_license.read_bytes() if repository_license.is_file() else None
+        repository_license.read_bytes() if safe_repository_file(root, repository_license) else None
     )
     if expected_license is None:
         errors.append("Repository LICENSE is required.")
@@ -203,7 +204,7 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
             errors.append(f"{rel}: frontmatter description is required.")
         skill_license = skill.parent / "LICENSE"
         license_rel = skill_license.relative_to(root)
-        if not skill_license.is_file():
+        if not safe_repository_file(root, skill_license):
             errors.append(f"{license_rel}: skill folders must include the MIT license.")
         elif expected_license is not None and skill_license.read_bytes() != expected_license:
             errors.append(f"{license_rel}: license must be identical to the repository LICENSE.")
@@ -227,7 +228,24 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
     )
 
 
+def safe_repository_file(root: Path, path: Path) -> bool:
+    """Do not follow PR-owned symlinks, including links in ancestor folders."""
+    try:
+        relative = path.relative_to(root)
+        current = root
+        for part in relative.parts:
+            current = current / part
+            if stat.S_ISLNK(current.lstat().st_mode):
+                return False
+        return stat.S_ISREG(path.lstat().st_mode)
+    except (ValueError, OSError):
+        return False
+
+
 def parse_frontmatter(path: Path, root: Path, errors: list[str]) -> dict[str, str]:
+    if not safe_repository_file(root, path):
+        errors.append(f"{path.relative_to(root)}: symbolic links and special files are not valid skill inputs.")
+        return {}
     text = path.read_text(encoding="utf-8", errors="replace")
     rel = path.relative_to(root)
     if not text.startswith("---\n"):
@@ -256,6 +274,9 @@ def validate_changed_file_leaks(root: Path, changed_files: Iterable[Path]) -> Va
         for label in scan_text_for_leaks(str(rel)):
             findings.append(f"{rel}: changed path contains possible {label}.")
         path = root / rel
+        if path.is_symlink() or (path.exists() and not safe_repository_file(root, path)):
+            findings.append(f"{rel}: symbolic links and special files cannot be scanned safely.")
+            continue
         if not path.exists() or not path.is_file() or path.suffix.lower() in SKIP_SUFFIXES:
             continue
         if path.name in SENSITIVE_FILENAMES or path.suffix.lower() in SENSITIVE_SUFFIXES:

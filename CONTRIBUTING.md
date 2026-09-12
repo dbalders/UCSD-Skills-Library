@@ -134,6 +134,28 @@ without failing solely because the allowlist is unavailable. The local reviewer
 uses its private allowlist copy to enforce contributor placement without
 revealing membership.
 
+## Running the Optional Reviewer
+
+The webhook reviewer persists jobs before accepting delivery, recovers interrupted
+work, and retries provider failures without posting a code verdict. It checks PR
+and issue freshness before publication. Start it with configured GitHub/webhook
+credentials:
+
+```sh
+python3 scripts/public_pr_review_service.py
+# Queue a review through the running service:
+python3 scripts/public_pr_review_service.py --review-pr 12 --force
+# Use separate state for a preview while the service is running:
+python3 scripts/public_pr_review_service.py --review-pr 12 --dry-run --state-dir .review-preview
+```
+
+Set `PR_REVIEW_API_URL` (or `--review-api-url`) to a trusted Responses endpoint to
+use tool-free model generation; the endpoint must use HTTPS or loopback HTTP and
+provide its own authentication boundary. Without it, the stdio app-server route
+is used. For GitHub App installation tokens, configure `PR_REVIEW_LOGIN` with the
+exact bot login. See [service configuration](docs/public-pr-review-service.md)
+for credential setup, health checks, queue behavior and input-size limits.
+
 ## Private or Internal Skills
 
 Some skills do not belong in this public repository. Use the private secure library for skills that include internal platform details, deployment procedures, private infrastructure assumptions, restricted data workflows, or operational handoffs.

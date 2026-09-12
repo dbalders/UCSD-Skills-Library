@@ -24,7 +24,27 @@ GitHub pull_request / issues webhook
 ```
 
 The webhook handler verifies GitHub's `X-Hub-Signature-256`, returns `202 Accepted`
-quickly, and performs the Codex review in a background worker.
+after persisting the event in SQLite, and performs the review in a background worker.
+Events arriving during an active review retain a pending latest revision. Interrupted
+work is recovered on startup, and failures retry with backoff before being marked
+failed. `/healthz` includes pending work, retries, failures and last success.
+
+Reviews pin the API-reported head and base commits and check that the PR is still
+open at those revisions before publication. Owned comment markers prevent duplicate
+publication after a retry. An explicit `--force` updates the owned comment with
+the fresh result, including when the commits have not changed. Provider failures are retried without posting a false code
+verdict. Reviews larger than this policy reviewer's input budget require manual
+inspection; they do not receive a partial clean verdict. The diff first includes
+15 surrounding lines and falls back to three if needed to fit the 80,000-character
+budget, preserving all changed lines in either case.
+
+The deterministic validator refuses symbolic links and special files before reading
+PR-controlled inputs. When a trusted Responses endpoint is available, set
+`PR_REVIEW_API_URL` (or `--review-api-url`) to use structured, tool-free model calls.
+That mode sends only the prepared evidence and does not start a model process with
+access to the host filesystem. The endpoint must use HTTPS or loopback HTTP and
+must provide its own authentication boundary. Without this setting, the existing
+stdio app-server transport remains available.
 
 ## What It Reviews
 
@@ -48,7 +68,7 @@ For `issues` actions `opened`, `reopened`, and `edited`, the service:
 - Reviews the issue body against public repository fit, public-boundary safety,
   missing reporter information, and likely next maintainer action.
 - Posts a new comment marked with `<!-- ucsd-public-skills-codex-issue-review -->`.
-- Records reviewed issue `updated_at` values in `.public-pr-reviewer/state.json`
+- Records reviewed issue content fingerprints in `.public-pr-reviewer/state.json`
   so the same issue update is not reviewed twice unless `--force` is used.
 
 ## Local Setup
@@ -69,6 +89,11 @@ export PR_REVIEW_WEBHOOK_SECRET="$(openssl rand -hex 32)"
 ```
 
 `GITHUB_TOKEN` or `GH_TOKEN` also work when `PR_REVIEW_GITHUB_TOKEN` is not set.
+For a GitHub App installation token, also set `PR_REVIEW_LOGIN` to the app's exact
+bot login (for example, `your-review-app[bot]`). Installation tokens cannot use
+the user identity endpoint; the configured identity is used to recognize owned
+comments. Keep the short-lived installation token refreshed through your host's
+credential management.
 
 Run the webhook receiver:
 
@@ -82,22 +107,22 @@ Health check:
 curl http://127.0.0.1:8787/healthz
 ```
 
-Manual review without a webhook:
+Queue a manual review for the running service without a webhook:
 
 ```sh
 python3 scripts/public_pr_review_service.py --review-pr 12
 ```
 
-Manual issue review:
+Queue a manual issue review:
 
 ```sh
 python3 scripts/public_pr_review_service.py --review-issue 34
 ```
 
-Dry-run manual review:
+Dry-run previews need a separate state directory while the daemon is running:
 
 ```sh
-python3 scripts/public_pr_review_service.py --review-pr 12 --dry-run --force
+python3 scripts/public_pr_review_service.py --review-pr 12 --dry-run --force --state-dir .review-preview
 ```
 
 ## GitHub Webhook
@@ -130,7 +155,7 @@ Defaults:
 ```sh
 CODEX_PATH=/Applications/Codex.app/Contents/Resources/codex
 CODEX_REMOTE=stdio://
-CODEX_MODEL=gpt-5.5
+CODEX_MODEL=gpt-5.6-sol
 CODEX_REASONING_EFFORT=high
 CODEX_TIMEOUT_SECONDS=3600
 ```
@@ -157,3 +182,15 @@ reviewer. The tested automation path is `codex app-server --stdio`.
 - Local state and worktrees live under `.public-pr-reviewer/`, which is ignored by git.
 - Token/secret-like environment variables are scrubbed before running Codex.
 - The reviewer does not execute changed repository scripts.
+
+A GitHub redelivery can restart the matching latest generation after terminal
+failure. Duplicate active, retrying, completed or superseded deliveries remain
+ignored. For deliveries recorded before generation mapping was introduced, use
+the manual review command to enqueue a fresh attempt. Database initialization is
+serialized independently from the lifetime service lock so manual queue clients
+and daemon startup can share the durable store safely.
+
+Issue publication identity uses title, body, labels and state. Unrelated comment
+or assignment activity does not invalidate a review. Reopening explicitly requests
+a fresh review and updates the owned comment even if the content is unchanged.
+Pending force/reopen intent survives coalescing with newer ordinary webhook events.
