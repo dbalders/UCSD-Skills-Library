@@ -566,7 +566,7 @@ def run_local_checks(
     checks = [
         run_command("Changed files", ["git", "diff", "--name-status", f"{base_ref}...HEAD"], worktree, timeout=120),
         run_command("Diff stat", ["git", "diff", "--stat", f"{base_ref}...HEAD"], worktree, timeout=120),
-        run_command("PR diff", ["git", "diff", "--no-ext-diff", "--unified=80", f"{base_ref}...HEAD"], worktree, timeout=120),
+        run_command("PR diff", ["git", "diff", "--no-ext-diff", "--unified=15", f"{base_ref}...HEAD"], worktree, timeout=120),
         run_command("Whitespace check", ["git", "diff", "--check", f"{base_ref}...HEAD"], worktree, timeout=120),
     ]
     changed = changed_files(worktree, base_ref)
