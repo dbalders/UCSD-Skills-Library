@@ -1,6 +1,6 @@
 ---
 name: ucsd-branding
-description: Apply and review the UC San Diego Developer/Decorator 5 visual system for branded web pages, campus chrome, templates, modules, widgets, and official kitchen-sink components. Use for UCSD branding changes, Decorator page builds or restyling, component selection, and module implementation. Every use requires an accessibility check against current UCSD website guidance and WCAG 2.1 AA, including automated scanning plus keyboard, focus, responsive, zoom, semantic, and interactive-state review.
+description: Apply and review the UC San Diego Developer/Decorator 5 visual system for branded web pages, campus chrome, templates, modules, widgets, official kitchen-sink components, and enterprise application canvases. Use for UCSD branding changes, Decorator page builds or restyling, component selection, module implementation, and enterprise application styling. Every use requires an accessibility check against current UCSD website guidance and WCAG 2.1 AA, including automated scanning plus keyboard, focus, responsive, zoom, semantic, and interactive-state review.
 ---
 
 # UCSD Developer/Decorator 5 Branding
@@ -16,6 +16,7 @@ examples.
   sidebar, and footer
 - Checking whether a page uses only currently documented Decorator 5 elements
 - Choosing a Bootstrap 3/Decorator component from the official kitchen sink
+- Building or restyling the application canvas inside Decorator 5
 
 Do not use this skill as a general UC San Diego brand manual. If the user asks
 for broader brand identity, logos, print typography, email, charts, dark mode,
@@ -160,6 +161,25 @@ Key facts agents commonly get wrong:
 See `references/decorator5-chrome.md` for the annotated HTML skeleton,
 current sitemap additions, and kitchen-sink component inventory.
 
+### 4. Apply the enterprise application canvas contract
+
+For application interfaces inside Decorator 5, follow the full contract in
+`references/enterprise-application-design.md`. The important rules are:
+
+- Keep Decorator chrome protected: header, institutional navigation, search,
+  mobile drawer, and footer are inherited, not restyled.
+- Give the application canvas one explicit root container and scope application
+  CSS and JavaScript to that root.
+- Show one visible page `h1`, concise description, and application navigation
+  inside the canvas. Do not move application actions into Decorator chrome.
+- Use persistent visible labels for form controls and sentence case for prose,
+  headings, tabs, and menu items. Render visible textual button labels in
+  uppercase.
+- Use semantic application color, typography, spacing, radius, elevation, icon,
+  and motion tokens. Do not introduce raw palette names in components.
+- Preserve keyboard access, visible focus, sufficient contrast, announced
+  statuses, reflow, touch-target sizing, and reduced-motion support to WCAG 2.2
+  Level AA.
 ### 5. Use current sitemap additions
 
 The current non-archive sitemap pages add these elements beyond the kitchen
@@ -236,3 +256,4 @@ Available component pages:
 - Full annotated reference: `references/decorator5-chrome.md`
 - Accessibility gate: `references/accessibility-gate.md` - official UCSD
   accessibility sources checked July 22, 2026
+- Enterprise application canvas contract: `references/enterprise-application-design.md`
