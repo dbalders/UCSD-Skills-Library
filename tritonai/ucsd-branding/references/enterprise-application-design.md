@@ -1,5 +1,13 @@
 # Enterprise Application Design Standard for UC San Diego Decorator 5
 
+## Provenance and currency
+
+This is a product-team extension for enterprise application canvases inside
+Decorator 5. It is not a Decorator or official UCSD brand source of truth.
+Current as of September 21, 2026. Decorator-owned foundations remain governed by
+`developer.ucsd.edu` and the installed Decorator templates. Fonts may be supplied
+by Decorator (`Roboto` and `Teko`) or an approved project source.
+
 ## 1. Purpose
 
 This document defines how an enterprise application should look, behave, and communicate inside UC San Diego Decorator 5.
@@ -393,6 +401,7 @@ motion:
     exit: "cubic-bezier(0.3, 0, 1, 1)"
 ```
 
+
 #### Token-use rules
 
 - Use semantic aliases in component definitions, even when two roles currently resolve to the same value.
@@ -577,18 +586,17 @@ If the primary button is blue or yellow, then the hover background color should 
 Example:
 
 .btn-primary:hover {
-    background-color: #182b49;
-    color: #fff;
+    background-color: var(--component-btn-navy);
+    color: var(--component-btn-label-white);
 }
 
 If the primary background behind the button is navy, then the hover background color should be turquoise, and the text should be navy.
 
 Example:
-
-Example:
 .btn-primary:hover {
-    background-color: #00C6D7;
-    color: #182b49;
+    background-color: var(--component-btn-turquoise);
+    color: var(--component-btn-label-primary);
+}
 
 ### 8.2 Links
 
@@ -899,7 +907,7 @@ Do not:
 - use a disabled button as the only form guidance;
 - clear entered data after a recoverable error;
 - use color alone for status or validation; or
-- Do not design entirely around the ideal, expected scenario where everything works correctly, and no errors occur.
+- design entirely around the ideal, expected scenario where everything works correctly, and no errors occur.
 
 ---
 

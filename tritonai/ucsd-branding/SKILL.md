@@ -1,6 +1,6 @@
 ---
 name: ucsd-branding
-description: Apply and review the UC San Diego Developer/Decorator 5 visual system for branded web pages, campus chrome, templates, modules, widgets, official kitchen-sink components, and enterprise application canvases. Use for UCSD branding changes, Decorator page builds or restyling, component selection, module implementation, and enterprise application styling. Every use requires an accessibility check against current UCSD website guidance and WCAG 2.1 AA, including automated scanning plus keyboard, focus, responsive, zoom, semantic, and interactive-state review.
+description: Apply and review the UC San Diego Developer/Decorator 5 visual system for branded web pages, campus chrome, templates, modules, widgets, official kitchen-sink components, and enterprise application canvases. Use for UCSD branding changes, Decorator page builds or restyling, component selection, module implementation, and enterprise application styling. Every use requires an accessibility check against current UCSD website guidance and WCAG 2.1 AA, with WCAG 2.2 AA applying to enterprise application canvases, including automated scanning plus keyboard, focus, responsive, zoom, semantic, and interactive-state review.
 ---
 
 # UCSD Developer/Decorator 5 Branding
@@ -22,6 +22,9 @@ Do not use this skill as a general UC San Diego brand manual. If the user asks
 for broader brand identity, logos, print typography, email, charts, dark mode,
 or non-Decorator application design, fetch the relevant current official source
 first and keep that separate from this Decorator 5 contract.
+
+The enterprise application canvas contract is a product-team extension. It does
+not define Decorator chrome or replace the Decorator source of truth.
 
 ## How to use this skill
 
@@ -180,6 +183,7 @@ For application interfaces inside Decorator 5, follow the full contract in
 - Preserve keyboard access, visible focus, sufficient contrast, announced
   statuses, reflow, touch-target sizing, and reduced-motion support to WCAG 2.2
   Level AA.
+
 ### 5. Use current sitemap additions
 
 The current non-archive sitemap pages add these elements beyond the kitchen
@@ -257,3 +261,4 @@ Available component pages:
 - Accessibility gate: `references/accessibility-gate.md` - official UCSD
   accessibility sources checked July 22, 2026
 - Enterprise application canvas contract: `references/enterprise-application-design.md`
+  - Product-team extension; not a Decorator or official UCSD brand source of truth.
