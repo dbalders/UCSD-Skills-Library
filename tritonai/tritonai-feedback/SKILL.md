@@ -1,54 +1,92 @@
 ---
 name: tritonai-feedback
-description: Use when a user wants to send feedback, bug reports, support requests, improvement ideas, or agent-experience notes to the TritonAI team. Trigger on explicit requests such as /tritonai, /feedback, /feed-back, /feed back, TritonAI feedback, email TritonAI, report this to TritonAI, or send this to tritonai@ucsd.edu.
+description: Gather diagnostics for TritonAI feedback, bug reports, support requests, improvement ideas, or agent-experience notes, then prepare a GitHub issue for users with a GitHub account or an email for users without one. Trigger on /tritonai, /feedback, /feed-back, /feed back, TritonAI feedback, email TritonAI, report this to TritonAI, or send this to tritonai@ucsd.edu.
 ---
 
 # TritonAI Feedback
 
-Use this skill to turn coding-agent feedback into a concise email to `tritonai@ucsd.edu`.
+Turn the user's feedback into an actionable report backed by diagnostics the agent can gather. Prefer a GitHub issue when the user has a GitHub account. Use email to `tritonai@ucsd.edu` only when the user has no GitHub account, unless they explicitly request email.
 
-## Workflow
+In Harness Codex threads, a leading `/feedback` is currently intercepted by native provider feedback before this skill receives it. Use `/tritonai` or `$tritonai-feedback` to invoke this workflow there. Do not submit native provider feedback as a substitute for a TritonAI report.
 
-1. Treat the user's current message as the initial feedback.
-2. If the feedback is not clear enough to act on, ask only for the missing essentials:
-   - what happened
-   - what they expected
-   - which coding agent or tool was involved
-   - any relevant error text, command, file path, repo, model, or timestamp
-3. Draft a short email with a specific subject and actionable body.
-4. Show the exact subject and body to the user before sending.
-5. Send only after the user confirms, because this is an external action.
-6. If no email-sending tool is available, provide a ready-to-send draft or a `mailto:` link instead of pretending it was sent.
+## Gather the Report
 
-## Email Rules
+Use the current message and relevant conversation as the initial report. Inspect available tools, workspace metadata, app diagnostics, and logs before asking the user for information the agent can discover. Ask concise questions for missing essentials: what happened, expected behavior, reproduction steps, approximate time, frequency, and impact. For an improvement idea, capture the workflow pain point and desired outcome.
 
-- Always send to `tritonai@ucsd.edu`.
-- Do not include API keys, tokens, passwords, private keys, or unrelated sensitive content.
-- Redact secrets from logs before including them.
-- Keep the email direct and useful. Prefer facts over long explanation.
-- If the user is reporting a bug, include reproduction steps and observed behavior when available.
-- If the user is suggesting an improvement, include the workflow pain point and desired outcome.
-- If the issue depends on environment, include the agent name, repo/path, OS, model/provider, and approximate time when known.
+Gather what is relevant and available:
 
-## Email Shape
+- TritonAI app version/build, release channel, and agent/tool version.
+- OS/version, architecture, and relevant browser or device details.
+- Provider/model and relevant non-secret settings.
+- Workspace/repository, branch, commit, and working-tree status when relevant.
+- Timestamp with timezone, exact error text, commands, stack traces, and tool failures.
+- Relevant app/server, provider, terminal, and crash logs for the affected session and time window; screenshots or recordings when they help explain the problem.
+- Troubleshooting already attempted, observed results, and any safe reproduction the user authorized.
+
+Discover the running app's diagnostic/log location from its tools or configuration; do not assume a development checkout represents the installed app. Collect read-only evidence without changing settings, installing dependencies, restarting services, or rerunning destructive operations. Keep collection scoped to the reported problem. Do not sweep unrelated sessions, the home directory, credential stores, environment dumps, or complete conversation databases.
+
+Record sources and the covered time window. Distinguish observed facts, user reports, and hypotheses. Mark unavailable diagnostics and collection errors explicitly; do not invent missing details or keep asking indefinitely. For a simple suggestion, avoid collecting unrelated technical logs.
+
+## Prepare Safe Diagnostics
+
+Create a report and sanitized diagnostic files in a temporary directory outside the repository. Keep originals unchanged. Review text, attachments, screenshots, filenames, and metadata for secrets and unrelated private content before including them. Remove credentials, authorization headers, cookies, tokens, passwords, private keys, and connection strings. Replace identifying usernames and private paths with consistent placeholders when unnecessary to reproduce the issue. Exclude student, patient, employee, customer, and unrelated operational data.
+
+Include concise relevant excerpts in the report and all collected, relevant, sanitized logs as attachments where supported. List every included file, its source/time window, and redactions, omissions, or truncation. If a payload limit requires splitting or reducing logs, disclose it and preserve the sanitized files for the user. Never silently discard diagnostics or upload them to a separate file-sharing service.
+
+## Choose the Delivery Route
+
+- Check whether the available GitHub integration or CLI is authenticated without printing credentials. Existing authentication can establish that the user has an account. If uncertain, ask whether they have a GitHub account.
+- An absent CLI, expired login, missing repository permission, or failed API request does **not** mean the user has no account. Offer the supported sign-in flow or a prepared GitHub issue draft; do not switch to email automatically.
+- If the user has no GitHub account, prepare the email fallback. Do not require them to create an account.
+
+### GitHub Issue
+
+Create issues in [`dbalders/TritonAI-Harness`](https://github.com/dbalders/TritonAI-Harness/issues). Use this explicit destination even when the current workspace belongs to another repository; do not route to the skills library or the upstream project's tracker.
+
+1. Read the repository's issue guidance/template, confirm issues are enabled, and check its visibility. Search for an existing issue describing the same problem. If one exists, show its link and propose adding the new evidence there instead of creating a duplicate; obtain confirmation for that comment too.
+2. Prepare a specific title and a body using the report shape below, adapted to the issue template. Public issues require diagnostics suitable for public disclosure. If essential details cannot be shared safely, prepare a sanitized issue and identify withheld evidence for the user; do not publish private details or silently reroute to email.
+3. Show the exact repository, title, body, visibility, and sanitized attachment manifest/content to the user. Create the issue only after they confirm this report and destination. `/feedback` alone starts collection and drafting; it does not authorize publication.
+4. Use the available GitHub tool or CLI with the user's authenticated account. Pass multiline bodies as structured tool arguments or a body file. Attach sanitized files only if the tool supports it; otherwise include the sanitized logs in collapsible body sections when they fit. Retain files that cannot be included locally, state which were not uploaded, and provide an attachment handoff for the user. Resolve payload limitations in the draft before confirmation.
+5. Read back the resulting issue and return its URL. If creation times out or the result is uncertain, check for the created issue before retrying to avoid duplicates. Report failures accurately.
+
+### Email Fallback
+
+Prepare an email to `tritonai@ucsd.edu` with subject `TritonAI feedback: <short issue or request>`. Use the same diagnostic report as the body, with all collected, relevant, sanitized logs attached where supported. If attachments are unavailable, include the sanitized logs in the body when they fit; otherwise provide the complete sanitized files and a ready-to-send draft, identifying the manual attachment step.
+
+Default to the user's UCSD Microsoft 365/Outlook mailbox. Use this delivery order:
+
+1. **Office plugin first.** Discover the available Microsoft 365 mail tools and connected account. Prefer the Harness Office plugin. Its current `microsoft365.mail.draft.create` tool creates an **unsent** Outlook draft with file attachments and can return a `webLink`; it does not send mail. After the user confirms draft creation, include the reviewed report and sanitized logs, retain the draft ID/link, and open that draft in Outlook on the web to complete delivery. If a future plugin exposes an actual send tool, use it only when its capability is enabled and the user has confirmed sending the report. See the [Office plugin's documented capabilities](https://github.com/dbalders/TritonAI-Plugins/tree/main/plugins/microsoft-365).
+2. **Outlook on the web.** If the plugin is unavailable, disconnected, or fails, open [Outlook on the web](https://outlook.office.com/mail/) using the runtime's preferred browser tools. Verify the active UCSD/work account. Reuse the existing draft when one was created; otherwise compose the report and attach the sanitized files through supported UI controls. Resolve sign-in through the normal user flow. Never assume opening a page or a `mailto:` link has populated the message or attached the logs.
+3. **Desktop Outlook.** If the web route is unavailable, use an installed Outlook app signed in to the same mailbox. Reuse the draft or compose the same reviewed report, then verify the actual sender, recipient, body, and attachments in the UI.
+4. **Manual handoff.** If neither Outlook surface can be operated, provide the complete draft and sanitized files with concise send instructions. State that the report has not been sent. Do not switch to Gmail or another personal mailbox unless the user explicitly requests that sender.
+
+Show the exact sender account, recipient, subject, body, and sanitized attachment manifest/content before creating an external draft or sending. Draft creation and sending are separate actions; never claim an unsent draft was delivered. Obtain confirmation for sending the concrete report. Once the user has confirmed the report and sender, carry that authorization across transport fallback without asking again solely because the tool changed. If the sender or report changes, show the change before sending.
+
+Before sending through any route, verify that all intended attachments are present or disclose missing files. If draft creation or sending has an uncertain result, check Drafts/Sent Items for the same recipient, subject, and recent timestamp before retrying or switching routes. Prefer reusing one draft to creating duplicates. Verify sending through a tool receipt or the matching Sent Items message, and report the actual sender and transport used; do not claim recipient receipt without evidence.
+
+## Report Shape
 
 ```text
-To: tritonai@ucsd.edu
-Subject: TritonAI feedback: <short issue or request>
+Summary: <problem or request and impact>
 
-Hi TritonAI team,
+Steps to reproduce:
+1. <step, if known>
 
-<one-paragraph summary>
+Expected: <desired behavior>
+Observed: <actual behavior and exact error>
+Frequency and time: <frequency; timestamp with timezone>
 
-Context:
-- Agent/tool:
-- Repo or workspace:
-- What happened:
-- Expected result:
-- Relevant command/error:
+Environment:
+- App version/build/channel:
+- Agent/tool and version:
+- OS/architecture:
+- Provider/model:
+- Relevant workspace/branch/commit:
 
-Thanks,
-<sender name if known>
+Troubleshooting: <attempts and results>
+Evidence: <sanitized log excerpts and useful screenshots>
+Diagnostics: <file manifest, sources, time window, redactions/omissions>
+Missing information: <unavailable diagnostics or unanswered essentials>
 ```
 
-Omit empty context fields. For quick feedback, a three-sentence email is better than a padded report.
+Omit irrelevant fields. Keep the summary concise while preserving the diagnostic evidence needed to act on the report.
