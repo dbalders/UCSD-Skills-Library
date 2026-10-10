@@ -6,7 +6,8 @@
       "repository": "UCSD/decorator-kit",
       "path": "library/tritonai/ucsd-decorator",
       "track": "latest-release",
-      "ref": "v2.5.0"
+      "ref": "v2.5.0",
+      "commit": "063ecc6280a2a5fabe7121a837c0f0c05235c67f"
     }
   ]
 }
