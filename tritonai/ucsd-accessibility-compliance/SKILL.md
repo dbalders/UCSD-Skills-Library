@@ -36,7 +36,7 @@ If the UCSD page conflicts with this skill, the live UCSD page wins.
 - Target WCAG 2.1 AA for UCSD digital content unless a current UCSD source says otherwise.
 - Treat accessibility as applying beyond public websites: portals, login-protected resources, LMS content, mobile apps, forms, surveys, documents, maps, media, social posts, and HTML email can all be in scope.
 - For Campus CMS, Simple Sites, and centrally supported UCSD templates, preserve built-in accessibility defaults. Do not override text sizing, colors, layout, or focus behavior without a concrete reason.
-- Use UCSD Accessible Brand Color Combinations when choosing UCSD-branded text/background colors. Pair with `ucsd-branding` for campus web branding work.
+- Use UCSD Accessible Brand Color Combinations when choosing UCSD-branded text/background colors. Pair with `ucsd-decorator` for campus web pages built on Decorator 5.
 - Use Siteimprove when the site is registered or when the user has access. Do not treat Siteimprove as the only check.
 - Do not silently decide that an exception applies. Name the possible exception, cite the UCSD source, and recommend confirmation with the responsible owner.
 - Do not claim content is "fully compliant" unless an authorized accessibility review has happened. Prefer "aligned with the checked UCSD guidance" or "no issues found in the checks run."
