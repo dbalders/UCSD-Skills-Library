@@ -39,3 +39,5 @@ output/
 .opencode/
 .memory/
 .public-pr-reviewer/
+
+.review-preview/

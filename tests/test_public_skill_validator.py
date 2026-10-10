@@ -111,6 +111,23 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertFalse(mismatched.ok)
         self.assertIn("identical to the repository LICENSE", mismatched.output())
 
+    def test_license_symlinks_are_rejected_without_reading_targets(self) -> None:
+        skill = self.write_skill()
+        outside = self.root.parent / (self.root.name + "-outside-license")
+        outside.write_text("MIT License\n", encoding="utf-8")
+        try:
+            license_path = skill.parent / "LICENSE"
+            license_path.unlink()
+            license_path.symlink_to(outside)
+            self.assertFalse(validator.validate_public_skill_format(self.root).ok)
+            license_path.unlink()
+            license_path.write_text("MIT License\n", encoding="utf-8")
+            (self.root / "LICENSE").unlink()
+            (self.root / "LICENSE").symlink_to(outside)
+            self.assertFalse(validator.validate_public_skill_format(self.root).ok)
+        finally:
+            outside.unlink()
+
     def test_name_mismatch_and_storefront_metadata_are_blocked(self) -> None:
         self.write_skill(name="different-name", extra="catalog: public")
 
