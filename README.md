@@ -100,7 +100,7 @@ description: Use when an agent should do a specific workflow. Trigger on concret
 
 The frontmatter `description` should explain when the skill should be used. Keep it concrete so agents do not load the skill for unrelated work.
 
-Keep frontmatter minimal. Public TritonAI skills should use only `name:` and `description:`. Community skills must also include a `maintainer:` field naming the contributor, team, or organization responsible for the skill.
+Keep frontmatter minimal. Public TritonAI skills require `name:` and `description:`; `allowed-tools:` is optional. Community skills must also include a `maintainer:` field naming the contributor, team, or organization responsible for the skill.
 
 ## Public Boundary
 
@@ -133,7 +133,7 @@ Pull requests are reviewed through three complementary layers:
 
 ## Contributing
 
-Contributions are welcome through pull requests. See `CONTRIBUTING.md` for the expected skill layout, review rules, and public/private boundary.
+Contributions are welcome through pull requests, including Harness’s **Share with UCSD** action. See `CONTRIBUTING.md` for the expected skill layout, review rules, and public/private boundary.
 
 ## License
 

@@ -83,7 +83,7 @@ maintainer: Contributor Name
 
 Use a real person, team, or organization name for `maintainer:`. Do not put private phone numbers, personal addresses, tokens, or credentials in frontmatter.
 
-Do not add arbitrary frontmatter fields. For this public repo, `maintainer:` is the only extra frontmatter field allowed, and only for community skills. Do not add `allowed-tools`, `catalog`, `tier`, `publicationStatus`, `agents/openai.yaml`, or generated-dashboard metadata unless this repository later adds tooling that requires it.
+Do not add arbitrary frontmatter fields. In addition to `name:` and `description:`, `allowed-tools:` is optional and `maintainer:` is required for community skills. Do not add `catalog`, `tier`, `publicationStatus`, `category`, `status`, `agents/openai.yaml`, or generated-dashboard metadata unless this repository later adds tooling that requires it.
 
 ## Skill Content Rules
 
