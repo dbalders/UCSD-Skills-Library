@@ -222,9 +222,7 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
         if "allowed-tools" in meta:
             tools = [tool.strip() for tool in meta["allowed-tools"].split(",") if tool.strip()]
             if len(tools) > 6:
-                warnings.append(
-                    f"{rel}: allowed-tools has {len(tools)} entries; confirm each one is needed."
-                )
+                warnings.append(f"{rel}: allowed-tools has {len(tools)} entries; confirm each one is needed.")
 
     return ValidationResult(
         "Public skill format",
@@ -246,10 +244,7 @@ def parse_frontmatter(path: Path, root: Path, errors: list[str]) -> dict[str, st
         return {}
     data: dict[str, str] = {}
     for raw in parts[1].splitlines():
-        if not raw.strip():
-            continue
-        if raw[:1].isspace() or ":" not in raw:
-            errors.append(f"{rel}: frontmatter must use one non-indented key and value per line.")
+        if not raw.strip() or raw[:1].isspace() or raw.startswith("#") or ":" not in raw:
             continue
         key, value = raw.split(":", 1)
         normalized_key = key.strip()

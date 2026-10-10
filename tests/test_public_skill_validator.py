@@ -104,6 +104,18 @@ class PublicSkillValidatorTests(unittest.TestCase):
 
         self.assertTrue(result.ok, result.output())
 
+    def test_multiline_frontmatter_and_comments_remain_accepted(self) -> None:
+        for style in ("|-", ">-"):
+            with self.subTest(style=style):
+                self.write_skill(
+                    description=f"{style}\n  Use when testing\n  a public example skill.",
+                    extra="allowed-tools:\n  - Read\n  - Bash\n# Example: supported tools",
+                )
+
+                result = validator.validate_public_skill_format(self.root)
+
+                self.assertTrue(result.ok, result.output())
+
     def test_community_skill_requires_maintainer(self) -> None:
         self.write_skill(maintainer=None)
 
