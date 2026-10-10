@@ -1,6 +1,6 @@
-# TritonAI Commons
+# UCSD Skills Library
 
-TritonAI Commons is the public library of reusable agent skills for UC San Diego, TritonAI, and community workflows. The repository URL remains `https://github.com/dbalders/UCSD-Skills-Library` for compatibility with existing Harness installs and links.
+Public, reusable agent skills for UC San Diego and TritonAI workflows.
 
 Created and maintained by David Balderston for UC San Diego.
 
@@ -93,7 +93,7 @@ Create, install, and use a skill locally in Harness first. When it is ready to s
 
 Harness reads that existing local skill folder, validates its public copy, and submits it under `community/<skill-name>/`. Supporting text files are included. If the skill has no maintainer or matching license, the submitted copy names the signed-in GitHub user and includes the repository MIT license without changing local files. A conflicting local license must be resolved before submission.
 
-Harness uses the connected GitHub integration to handle a fork, contribution branch, commits, and ready-for-review pull request. It never merges automatically, never overwrites an existing Commons skill, and does not expose or ask for a raw GitHub token. Campus approval is a later maintainer decision, not a contributor-selected submission scope.
+Harness uses the connected GitHub integration to handle a fork, contribution branch, commits, and ready-for-review pull request. It never merges automatically, never overwrites an existing library skill, and does not expose or ask for a raw GitHub token. Campus approval is a later maintainer decision, not a contributor-selected submission scope.
 
 The same submission is callable from Harness chat: ask to submit a named local skill to UCSD, then approve the public write. If GitHub is not connected, Harness explains the fork and public pull-request flow and directs you through **Settings → Plugins → GitHub** to sign in or create an account before retrying.
 

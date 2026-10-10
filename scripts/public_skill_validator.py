@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate TritonAI Commons skill layout, contributor placement, and leak safety."""
+"""Validate public UCSD skill layout, contributor placement, and leak safety."""
 
 from __future__ import annotations
 
@@ -197,7 +197,7 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
         collection = rel.parts[0]
         folder = skill.parent.name
         if skill.stat().st_size > MAX_SKILL_BYTES:
-            errors.append(f"{rel}: SKILL.md exceeds the 64 KiB Commons limit.")
+            errors.append(f"{rel}: SKILL.md exceeds the 64 KiB limit.")
             continue
         meta = parse_frontmatter(skill, root, errors)
         if not name_re.fullmatch(folder):

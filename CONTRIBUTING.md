@@ -1,6 +1,6 @@
-# Contributing to TritonAI Commons
+# Contributing to UCSD Skills Library
 
-Thanks for helping improve TritonAI Commons. This repository is intentionally simple: it contains reusable agent skills, not a generated catalog, dashboard, installer, or internal deployment tooling.
+Thanks for helping improve the UCSD Skills Library. This repository is intentionally simple: it contains reusable agent skills, not a generated catalog, dashboard, installer, or internal deployment tooling.
 
 The easiest contribution path is to create and use a skill locally in Harness, then select **Settings → Skills → Your Skills → Share with UCSD**. Harness submits that existing skill folder and hides the GitHub fork and branch mechanics, but the resulting pull request follows every rule in this document and is never merged automatically.
 

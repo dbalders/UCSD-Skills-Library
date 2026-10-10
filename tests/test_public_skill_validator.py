@@ -166,7 +166,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
             result = validator.validate_public_skill_format(self.root)
 
         self.assertFalse(result.ok)
-        self.assertIn("64 KiB Commons limit", result.output())
+        self.assertIn("64 KiB limit", result.output())
 
     def test_root_level_skill_is_blocked(self) -> None:
         self.write_skill()
