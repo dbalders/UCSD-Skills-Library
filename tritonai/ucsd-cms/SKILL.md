@@ -125,7 +125,7 @@ Before publishing live, confirm:
 - [ ] **Previewed** in the CMS preview before submit.
 - [ ] **Accessibility** — run SiteImprove or the current UCSD accessibility guidance before publishing high-traffic pages.
 - [ ] **Data classification** — no P3/P4 data on a public page; use the `ucsd-data-classification` skill if installed, otherwise UC IS-3 guidance.
-- [ ] **Brand & voice** — for visual/voice review, use the `ucsd-branding` skill if installed.
+- [ ] **Brand & voice** — for Decorator page chrome and visual review, use the `ucsd-decorator` skill if installed.
 
 ## Guardrails
 
