@@ -1,0 +1,12 @@
+{
+  "skills": [
+    {
+      "name": "ucsd-decorator",
+      "collection": "tritonai",
+      "repository": "UCSD/decorator-kit",
+      "path": "library/tritonai/ucsd-decorator",
+      "track": "latest-release",
+      "ref": "v2.5.0"
+    }
+  ]
+}

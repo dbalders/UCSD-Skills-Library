@@ -116,6 +116,49 @@ Do not add:
 
 Internal or restricted skills belong in the private `UCSD-Skills-Library-Secure` repository instead.
 
+## External Skills
+
+Some skills are maintained next to the code they describe in another
+repository. `external-skills.json` lists them, and
+`.github/workflows/sync-external-skills.yml` copies each one in every Monday or
+on demand from the Actions tab, opening one pull request per skill when the
+upstream copy changes. For example, `tritonai/ucsd-decorator/` comes from
+[UCSD/decorator-kit](https://github.com/UCSD/decorator-kit).
+
+Each entry looks like this:
+
+```json
+{
+  "name": "ucsd-decorator",
+  "collection": "tritonai",
+  "repository": "UCSD/decorator-kit",
+  "path": "library/tritonai/ucsd-decorator",
+  "track": "latest-release",
+  "ref": "v2.5.0",
+  "commit": "063ecc6280a2a5fabe7121a837c0f0c05235c67f"
+}
+```
+
+- `track: latest-release` follows the newest GitHub release. `track: pinned`
+  stays on `ref` until someone changes it.
+- `ref` and `commit` record what was copied; the sync updates them.
+- The upstream repository `LICENSE` must match this repository's `LICENSE`
+  exactly. The sync refuses anything else so the copy keeps its original terms.
+- Do not edit synced folders by hand. The next sync overwrites them, and the
+  preflight check warns about such edits. Request changes upstream instead.
+
+To add an external skill, add an entry with `ref` set to the release to start
+from, then run:
+
+```sh
+python3 scripts/sync_external_skills.py --skill <name>
+```
+
+Commit the copied folder together with the updated manifest. Pull requests
+opened with the default Actions token do not trigger the preflight workflow;
+add a `SKILLS_SYNC_TOKEN` secret with contents and pull-request write access so
+they do.
+
 ## PR Review Automation
 
 Pull requests are reviewed through three complementary layers:
