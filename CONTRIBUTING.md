@@ -134,6 +134,13 @@ without failing solely because the allowlist is unavailable. The local reviewer
 uses its private allowlist copy to enforce contributor placement without
 revealing membership.
 
+## External Skills
+
+Folders listed in `external-skills.json` are copied from another repository by
+the weekly sync. Propose changes to those skills in their source repository;
+edits made here are overwritten by the next sync. See `README.md` for how to add
+a new external skill.
+
 ## Private or Internal Skills
 
 Some skills do not belong in this public repository. Use the private secure library for skills that include internal platform details, deployment procedures, private infrastructure assumptions, restricted data workflows, or operational handoffs.

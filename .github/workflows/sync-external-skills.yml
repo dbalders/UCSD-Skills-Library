@@ -1,0 +1,105 @@
+name: sync external skills
+
+on:
+  schedule:
+    # Mondays 15:17 UTC (8:17 AM Pacific during daylight time).
+    - cron: "17 15 * * 1"
+  workflow_dispatch:
+    inputs:
+      skill:
+        description: Sync only this skill from external-skills.json (blank syncs all)
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-external-skills
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      # Pull requests opened with the default token do not trigger other workflows.
+      # Set SKILLS_SYNC_TOKEN to a token with contents and pull-request write access
+      # so the public skill review checks run on sync pull requests too.
+      GH_TOKEN: ${{ secrets.SKILLS_SYNC_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SKILLS_SYNC_TOKEN || github.token }}
+
+      - name: Sync each external skill into its own pull request
+        shell: bash
+        env:
+          SKILL_INPUT: ${{ inputs.skill }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ -n "$SKILL_INPUT" ]]; then
+            names="$SKILL_INPUT"
+          else
+            names="$(python3 scripts/sync_external_skills.py --list)"
+          fi
+
+          failed=()
+          for name in $names; do
+            echo "::group::$name"
+            branch="sync/external-skills/$name"
+            out="$RUNNER_TEMP/$name"
+            git checkout -q -B "$branch" origin/main
+
+            if ! python3 scripts/sync_external_skills.py --skill "$name" --pr-output "$out"; then
+              echo "::error::$name: sync failed"
+              failed+=("$name")
+              echo "::endgroup::"
+              continue
+            fi
+            if [[ -z "$(git status --porcelain)" ]]; then
+              echo "::endgroup::"
+              continue
+            fi
+
+            git add -A
+            git diff --cached --name-only > "$out/changed-files.txt"
+            if ! python3 -m unittest discover -s tests \
+              || ! python3 scripts/public_skill_validator.py \
+                --changed-files "$out/changed-files.txt" \
+                --contributor "github-actions[bot]" \
+                --github-annotations \
+              || ! git diff --cached --check; then
+              echo "::error::$name: synced copy failed validation"
+              failed+=("$name")
+              echo "::endgroup::"
+              continue
+            fi
+
+            title="$(cat "$out/title.txt")"
+            { echo "$title"; echo; cat "$out/body.md"; } | git commit -q -F -
+            if git rev-parse -q --verify "refs/remotes/origin/$branch" >/dev/null \
+              && git diff --quiet "origin/$branch" HEAD; then
+              echo "$name: open pull request already has this content"
+              echo "::endgroup::"
+              continue
+            fi
+
+            git push --force origin "$branch"
+            pr="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number // empty')"
+            if [[ -n "$pr" ]]; then
+              gh pr edit "$pr" --title "$title" --body-file "$out/body.md"
+            else
+              gh pr create --base main --head "$branch" --title "$title" --body-file "$out/body.md"
+            fi
+            echo "::endgroup::"
+          done
+
+          if (( ${#failed[@]} )); then
+            echo "::error::Failed: ${failed[*]}"
+            exit 1
+          fi

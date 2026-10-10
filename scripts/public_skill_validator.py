@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -84,6 +85,7 @@ def validate_repository(
     return [
         validate_contributor_placement(contributor, changed, allowlist_path),
         validate_public_skill_format(root),
+        validate_external_skill_edits(root, changed),
         validate_changed_file_leaks(root, changed),
     ]
 
@@ -225,6 +227,37 @@ def validate_public_skill_format(root: Path) -> ValidationResult:
         warnings=tuple(warnings),
         notes=(f"Skills found: {len(skill_files)}",),
     )
+
+
+def validate_external_skill_edits(root: Path, changed_files: Iterable[Path]) -> ValidationResult:
+    """Warn when a PR edits a synced skill without going through external-skills.json."""
+    manifest_path = root / "external-skills.json"
+    if not manifest_path.is_file():
+        return ValidationResult("External skill sync")
+    try:
+        entries = json.loads(manifest_path.read_text(encoding="utf-8")).get("skills", [])
+        managed = {
+            (entry["collection"], entry["name"]): entry["repository"]
+            for entry in entries
+        }
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        return ValidationResult(
+            "External skill sync", errors=(f"external-skills.json is invalid: {exc}",)
+        )
+
+    changed = tuple(changed_files)
+    if Path("external-skills.json") in changed:
+        return ValidationResult("External skill sync")
+    warnings = sorted(
+        {
+            f"{collection}/{name}/ is synced from {repository}; this edit will be overwritten "
+            "by the next sync. Request the change upstream instead."
+            for path in changed
+            for (collection, name), repository in managed.items()
+            if path.parts[:2] == (collection, name)
+        }
+    )
+    return ValidationResult("External skill sync", warnings=tuple(warnings))
 
 
 def parse_frontmatter(path: Path, root: Path, errors: list[str]) -> dict[str, str]:

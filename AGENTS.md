@@ -16,6 +16,7 @@ Instructions for AI agents working in this public UCSD Skills Library.
   repository MIT license.
 - Optional skill resources belong inside that skill folder as `references/`, `assets/`, or `scripts/`.
 - Do not create a top-level `skills/` folder in this public repository.
+- Do not edit skill folders listed in `external-skills.json`; they are synced from another repository and changes belong upstream.
 
 ## Skill Rules
 
