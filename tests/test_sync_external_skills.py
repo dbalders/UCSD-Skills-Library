@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import os
 import subprocess
 import sys
@@ -117,6 +119,24 @@ class SyncExternalSkillsTests(unittest.TestCase):
             self.assertIsNone(sync.sync_skill(self.root, entry))
         self.assertEqual(entry["ref"], "v1.0.0")
 
+    def test_mode_only_release_is_synced(self) -> None:
+        entry = self.entry()
+        script = self.upstream / "library" / "example-skill" / "scripts" / "run.sh"
+        script.parent.mkdir()
+        script.write_text("#!/bin/sh\n", encoding="utf-8")
+        git(self.upstream, "add", "-A")
+        git(self.upstream, "commit", "-q", "--amend", "--no-edit")
+        git(self.upstream, "tag", "-f", "v1.0.0")
+        sync.sync_skill(self.root, entry)
+        script.chmod(0o755)
+        self.tag("v1.0.1")
+
+        result = sync.sync_skill(self.root, {**entry, "ref": "v1.0.1"})
+
+        copied = self.root / "community" / "example-skill" / "scripts" / "run.sh"
+        self.assertIsNotNone(result)
+        self.assertTrue(os.access(copied, os.X_OK))
+
     def test_rejects_upstream_with_different_license(self) -> None:
         (self.upstream / "LICENSE").write_text("Apache License\n", encoding="utf-8")
         self.tag("v2.0.0")
@@ -138,6 +158,18 @@ class SyncExternalSkillsTests(unittest.TestCase):
 
         with self.assertRaisesRegex(sync.SyncError, "symlinks"):
             sync.sync_skill(self.root, self.entry(ref="v2.0.0"))
+
+    def test_later_failure_keeps_earlier_copy_recorded(self) -> None:
+        manifest = {"skills": [self.entry(), self.entry(name="missing-skill", path="library/missing")]}
+        sync.write_manifest(self.root, manifest)
+
+        with mock.patch.object(sys, "argv", ["sync", "--root", str(self.root)]), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(sync.main(), 1)
+
+        saved = sync.load_manifest(self.root)["skills"][0]
+        self.assertEqual(saved["commit"], git(self.upstream, "rev-parse", "v1.0.0"))
+        self.assertTrue((self.root / "community" / "example-skill" / "SKILL.md").is_file())
 
     def test_rejects_unsafe_entries(self) -> None:
         for overrides in (

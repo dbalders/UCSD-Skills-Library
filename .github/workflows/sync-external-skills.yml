@@ -48,53 +48,54 @@ jobs:
             names="$(python3 scripts/sync_external_skills.py --list)"
           fi
 
+          # Push the branch unless it already holds this content, then make sure an
+          # open pull request exists. Runs in an `if` so failures return to the loop.
+          publish() {
+            local name="$1" branch="$2" out="$3" title pr
+            title="$(cat "$out/title.txt")"
+            { echo "$title"; echo; cat "$out/body.md"; } | git commit -q -F - || return 1
+            if git rev-parse -q --verify "refs/remotes/origin/$branch" >/dev/null \
+              && git diff --quiet "origin/$branch" HEAD; then
+              echo "$name: branch already has this content"
+            else
+              git push --force origin "$branch" || return 1
+            fi
+            pr="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number // empty')" || return 1
+            if [[ -n "$pr" ]]; then
+              gh pr edit "$pr" --title "$title" --body-file "$out/body.md" || return 1
+            else
+              gh pr create --base main --head "$branch" --title "$title" --body-file "$out/body.md" || return 1
+            fi
+          }
+
           failed=()
           for name in $names; do
             echo "::group::$name"
             branch="sync/external-skills/$name"
             out="$RUNNER_TEMP/$name"
+            # Start every skill from a clean tree so a failed skill cannot leak into the next.
+            git reset -q --hard
+            git clean -qfd
             git checkout -q -B "$branch" origin/main
 
             if ! python3 scripts/sync_external_skills.py --skill "$name" --pr-output "$out"; then
               echo "::error::$name: sync failed"
               failed+=("$name")
-              echo "::endgroup::"
-              continue
-            fi
-            if [[ -z "$(git status --porcelain)" ]]; then
-              echo "::endgroup::"
-              continue
-            fi
-
-            git add -A
-            git diff --cached --name-only > "$out/changed-files.txt"
-            if ! python3 -m unittest discover -s tests \
-              || ! python3 scripts/public_skill_validator.py \
-                --changed-files "$out/changed-files.txt" \
-                --contributor "github-actions[bot]" \
-                --github-annotations \
-              || ! git diff --cached --check; then
-              echo "::error::$name: synced copy failed validation"
-              failed+=("$name")
-              echo "::endgroup::"
-              continue
-            fi
-
-            title="$(cat "$out/title.txt")"
-            { echo "$title"; echo; cat "$out/body.md"; } | git commit -q -F -
-            if git rev-parse -q --verify "refs/remotes/origin/$branch" >/dev/null \
-              && git diff --quiet "origin/$branch" HEAD; then
-              echo "$name: open pull request already has this content"
-              echo "::endgroup::"
-              continue
-            fi
-
-            git push --force origin "$branch"
-            pr="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number // empty')"
-            if [[ -n "$pr" ]]; then
-              gh pr edit "$pr" --title "$title" --body-file "$out/body.md"
-            else
-              gh pr create --base main --head "$branch" --title "$title" --body-file "$out/body.md"
+            elif [[ -n "$(git status --porcelain)" ]]; then
+              git add -A
+              git diff --cached --name-only > "$out/changed-files.txt"
+              if ! python3 -m unittest discover -s tests \
+                || ! python3 scripts/public_skill_validator.py \
+                  --changed-files "$out/changed-files.txt" \
+                  --contributor "github-actions[bot]" \
+                  --github-annotations \
+                || ! git diff --cached --check; then
+                echo "::error::$name: synced copy failed validation"
+                failed+=("$name")
+              elif ! publish "$name" "$branch" "$out"; then
+                echo "::error::$name: could not publish the pull request"
+                failed+=("$name")
+              fi
             fi
             echo "::endgroup::"
           done

@@ -192,9 +192,9 @@ def ignore_dotfiles(_directory: str, names: list[str]) -> list[str]:
 
 
 def same_tree(left: Path, right: Path) -> bool:
-    def files(base: Path) -> dict[str, bytes]:
+    def files(base: Path) -> dict[str, tuple[bytes, bool]]:
         return {
-            str(path.relative_to(base)): path.read_bytes()
+            str(path.relative_to(base)): (path.read_bytes(), os.access(path, os.X_OK))
             for path in base.rglob("*")
             if path.is_file()
         }
@@ -259,15 +259,16 @@ def main() -> int:
                 print(f"{entry['name']}: up to date at {entry['ref']}")
                 continue
             results.append(result)
+            # Record each copy as soon as it lands so a later failure cannot leave a
+            # folder newer than the ref the manifest claims.
+            write_manifest(root, manifest)
             print(f"{result.name}: synced {result.repository} {result.ref} ({result.commit[:12]})")
     except SyncError as exc:
         print(f"ERROR {exc}", file=sys.stderr)
         return 1
 
-    if results:
-        write_manifest(root, manifest)
-        if args.pr_output:
-            write_pull_request(args.pr_output, results)
+    if results and args.pr_output:
+        write_pull_request(args.pr_output, results)
     return 0
 
 
