@@ -40,9 +40,27 @@ stop. Credentials are managed by the Harness.
 5. Propose the meeting batch, then propose worklogs for remaining time from chat evidence,
    grouped by topic and matched to issues. Never exceed 480 minutes (8 hours) unless the
    user explicitly asks.
-6. After the user approves the batch, push the worklogs (respecting the thread's access
+6. If the user asks to fill the day or the remaining time is under 8 hours, propose a
+   fill-to-8-hours plan: 15-minute increments distributed across the issues the user
+   actually worked on today, weighted proportionally to their recent Tempo allocations
+   (use roughly the last 10 logged workdays). If there is no recent Tempo history, ask
+   the user which issues to weight and split evenly between them until they confirm.
+   Never invent issues or add filler worklogs to reach the target, and always wait for
+   the user to confirm the distribution before pushing.
+7. After the user approves the batch, push the worklogs (respecting the thread's access
    level - with full access, push directly without further prompts) and report the final
    total for the day.
+
+## Reporting format
+
+Every time summary and final report uses the same format:
+
+- One line per issue, always showing the key and the issue name together:
+  `KEY-123: <issue summary> - <minutes> min`.
+- A per-day total block for the date, listing each day's logged minutes before the
+  overall total.
+- When the summary spans multiple days, add a per-week table (issue, per-week minutes,
+  and the weekly grand total) in addition to the per-day blocks.
 
 ## Conventions
 
