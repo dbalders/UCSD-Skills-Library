@@ -41,7 +41,8 @@ stop. Credentials are managed by the Harness.
    grouped by topic and matched to issues. Never exceed 480 minutes (8 hours) unless the
    user explicitly asks.
 6. Only when the user explicitly asks to fill the day, propose an allocation of their
-   confirmed, unlogged work time, up to the 8-hour target. If the amount worked is
+   confirmed, unlogged work time, capped at the remaining daily capacity: 480 minutes
+   minus existing logged and already-proposed worklogs. If the amount worked is
    unknown, ask the user to confirm it first; a short logged day or past Tempo history
    is not evidence of additional hours worked. Use 15-minute increments across issues
    the user actually worked on today, weighted proportionally to their recent Tempo
