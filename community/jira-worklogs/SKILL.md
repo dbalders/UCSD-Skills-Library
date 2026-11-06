@@ -22,6 +22,12 @@ stop. Credentials are managed by the Harness.
 ## Daily flow
 
 1. Check existing worklogs for the date so nothing is logged twice.
+   Read the user's complete logged total for the date across all issues, not only
+   candidate issues, and treat that as a hard budget: never propose more than 480
+   minutes minus the date's total logged minutes. List worklogs per candidate issue
+   through the Jira plugin only to detect duplicates on specific issues. Mark each
+   proposal as new, partial (only the remaining minutes), or skipped (already
+   covered).
 2. Review the user's assigned and favorited issues as candidates for non-meeting work.
    Validate any referenced issue and flag closed issues before proposing changes to it.
 3. Build the meeting batch from accepted calendar events only: map each meeting to a Jira
@@ -49,11 +55,14 @@ stop. Credentials are managed by the Harness.
    allocations (use roughly the last 10 logged workdays). Use history only to suggest
    the split, never to infer hours worked. If there is no recent Tempo history, ask
    which issues they worked on and propose an even split of the confirmed time. Never
-   invent issues or add filler worklogs to reach the target, and always wait for the
-   user to confirm the distribution before pushing.
-7. After the user approves the batch, push the worklogs (respecting the thread's access
-   level - with full access, push directly without further prompts) and report the final
-   total for the day.
+   invent issues or add filler worklogs to reach the target, and always wait for
+   the user to confirm the distribution before pushing.
+7. After the user approves the batch, push through the Jira plugin's change flow:
+   prepare each worklog with the plugin's preview (prepare_add_worklog), then apply
+   after confirmation - with full access, apply directly without further prompts. If
+   the Change UCSD Jira capability is not enabled in the thread, stop and ask the
+   user to enable it in Settings > Plugins; never fall back to raw API writes. Report
+   the final total for the day in the reporting format.
 
 ## Reporting format
 

@@ -21,8 +21,10 @@ user to enable it and stop.
    unresolved issue: close it, update its status or scope, move it to the next sprint, or
    ask the user. Working rule: every in-progress issue should be closed or updated, never
    silently carried over.
-4. Apply confirmed changes (respecting the thread's access level - with full access, apply
-   directly after the user approves the batch), re-read each changed issue, and report the
+4. Apply confirmed changes through the Jira plugin's change flow (preview each change,
+   then apply after the user approves the batch - with full access, apply directly).
+   If the Change UCSD Jira capability is not enabled in the thread, stop and ask the
+   user to enable it in Settings > Plugins. Re-read each changed issue and report the
    final state.
 
 ## Conventions
