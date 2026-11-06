@@ -22,10 +22,12 @@ stop. Credentials are managed by the Harness.
 ## Daily flow
 
 1. Check existing worklogs for the date so nothing is logged twice.
-   List worklogs per candidate issue through the Jira plugin and treat the day's
-   already-logged total as a hard budget: never propose more than 480 minutes minus
-   what is already logged. Mark each proposal as new, partial (only the remaining
-   minutes), or skipped (already covered).
+   Read the user's complete logged total for the date across all issues, not only
+   candidate issues, and treat that as a hard budget: never propose more than 480
+   minutes minus the date's total logged minutes. List worklogs per candidate issue
+   through the Jira plugin only to detect duplicates on specific issues. Mark each
+   proposal as new, partial (only the remaining minutes), or skipped (already
+   covered).
 2. Review the user's assigned and favorited issues as candidates for non-meeting work.
    Validate any referenced issue and flag closed issues before proposing changes to it.
 3. Build the meeting batch from accepted calendar events only: map each meeting to a Jira
@@ -44,12 +46,16 @@ stop. Credentials are managed by the Harness.
 5. Propose the meeting batch, then propose worklogs for remaining time from chat evidence,
    grouped by topic and matched to issues. Never exceed 480 minutes (8 hours) unless the
    user explicitly asks.
-6. If the user asks to fill the day or the remaining time is under 8 hours, propose a
-   fill-to-8-hours plan: 15-minute increments distributed across the issues the user
-   actually worked on today, weighted proportionally to their recent Tempo allocations
-   (use roughly the last 10 logged workdays). If there is no recent Tempo history, ask
-   the user which issues to weight and split evenly between them until they confirm.
-   Never invent issues or add filler worklogs to reach the target, and always wait for
+6. Only when the user explicitly asks to fill the day, propose an allocation of their
+   confirmed, unlogged work time, capped at the remaining daily capacity: 480 minutes
+   minus existing logged and already-proposed worklogs. If the amount worked is
+   unknown, ask the user to confirm it first; a short logged day or past Tempo history
+   is not evidence of additional hours worked. Use 15-minute increments across issues
+   the user actually worked on today, weighted proportionally to their recent Tempo
+   allocations (use roughly the last 10 logged workdays). Use history only to suggest
+   the split, never to infer hours worked. If there is no recent Tempo history, ask
+   which issues they worked on and propose an even split of the confirmed time. Never
+   invent issues or add filler worklogs to reach the target, and always wait for
    the user to confirm the distribution before pushing.
 7. After the user approves the batch, push through the Jira plugin's change flow:
    prepare each worklog with the plugin's preview (prepare_add_worklog), then apply

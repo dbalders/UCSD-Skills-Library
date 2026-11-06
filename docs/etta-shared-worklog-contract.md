@@ -21,10 +21,11 @@ Every proposed worklog carries:
 
 ## State machine
 
-1. **Read**: current worklogs for the date (per candidate issue via the Jira plugin;
-   Tempo totals where available). Nothing is proposed twice.
+1. **Read**: the user's complete logged total for the date across all issues, not
+   only candidate issues (per-candidate-issue reads via the Jira plugin exist to
+   detect duplicates on those issues). Nothing is proposed twice.
 2. **Propose**: the batch in the reporting format below, with the day's logged total
-   and remaining room (480 - logged) shown up front.
+   and remaining room (480 - the date's complete logged total) shown up front.
 3. **Confirm**: the user approves, edits, or redirects each line. Catch-all
    assignments for unmatched meetings are assigned in the proposal but never
    auto-pushed; the user always confirms or redirects them.
@@ -42,10 +43,14 @@ Every proposed worklog carries:
 
 ## Fill-to-8-hours
 
-15-minute increments across the issues actually worked on today, weighted by recent
-Tempo allocations (roughly the last 10 logged workdays). No recent history: the user
-picks the issues and the split is even until confirmed. Never invent issues or add
-filler worklogs. Never exceed the day's remaining room (480 - already logged).
+Triggered only when the user explicitly asks to fill the day. The fill amount is the
+user's confirmed, unlogged work time, capped at the day's remaining room (480 - the
+date's complete logged and already-proposed minutes). A short logged day or past Tempo
+history is never evidence of additional hours worked. 15-minute increments across the
+issues actually worked on today, weighted by recent Tempo allocations (roughly the
+last 10 logged workdays); history suggests the split only, never the hours worked.
+No recent history: the user picks the issues and the split is even until confirmed.
+Never invent issues or add filler worklogs.
 
 ## Consumers
 
