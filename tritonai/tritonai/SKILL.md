@@ -1,7 +1,6 @@
 ---
 name: tritonai
 description: Navigate UC San Diego's TritonAI services and documentation. Use for questions or work involving TritonAI, TritonGPT, TritonAI Harness, the Developer API or Gateway, and campus n8n workflows.
-maintainer: Matthew (415matt)
 ---
 
 # TritonAI
